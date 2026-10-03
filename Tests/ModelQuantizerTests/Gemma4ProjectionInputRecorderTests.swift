@@ -1,5 +1,5 @@
+import AfterglowModelSupport
 import MLX
-import WickModelSupport
 import XCTest
 
 final class Gemma4ProjectionInputRecorderTests: XCTestCase {

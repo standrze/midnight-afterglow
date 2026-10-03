@@ -170,7 +170,7 @@ final class QuantizationFormatsTests: XCTestCase {
         }
     }
 
-    func testHelpFormatsAndLegacyInvocation() throws {
+    func testHelpFormatsAndExplicitQuantization() throws {
         let executable = try executablePath()
         let rootHelp = try runCLI(executable: executable, arguments: ["--help"])
         try requireSuccess(rootHelp)
@@ -194,16 +194,13 @@ final class QuantizationFormatsTests: XCTestCase {
             _ = try makeMistralFixture(at: source)
             let destination = root.appendingPathComponent("output")
             let arguments = [source.path, destination.path, "--dry-run"]
-            let legacy = try runCLI(executable: executable, arguments: arguments)
             let explicit = try runCLI(executable: executable, arguments: ["quantize"] + arguments)
             let selected = try runCLI(
                 executable: executable,
                 arguments: ["quantize"] + arguments + ["--calibration", "scale-search"]
             )
-            try requireSuccess(legacy)
             try requireSuccess(explicit)
             try requireSuccess(selected)
-            XCTAssertEqual(legacy.output, explicit.output)
             XCTAssertEqual(explicit.output, selected.output)
             XCTAssertTrue(explicit.output.contains("ScaleSearch"), explicit.output)
             XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
@@ -266,10 +263,11 @@ final class QuantizationFormatsTests: XCTestCase {
 
     private func executablePath() throws -> String {
         let environment = ProcessInfo.processInfo.environment
-        guard let executable = environment["WICK_TEST_EXECUTABLE"] ?? environment["FACET_TEST_EXECUTABLE"],
+        guard let executable = environment["AFTERGLOW_TEST_EXECUTABLE"],
             !executable.isEmpty
         else {
-            throw XCTSkip("Set WICK_TEST_EXECUTABLE to the built wick executable for CLI format tests.")
+            throw XCTSkip(
+                "Set AFTERGLOW_TEST_EXECUTABLE to the built midnight-afterglow executable for CLI format tests.")
         }
         return executable
     }
@@ -352,7 +350,9 @@ final class QuantizationFormatsTests: XCTestCase {
     private func runCLI(executable: String, arguments: [String]) throws -> CLIResult {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
-        process.arguments = arguments
+        process.arguments =
+            arguments.first.map { ["quantize", "formats", "--help"].contains($0) } == true
+            ? arguments : ["quantize"] + arguments
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = pipe

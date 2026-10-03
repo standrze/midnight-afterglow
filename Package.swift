@@ -2,7 +2,7 @@
 
 import PackageDescription
 
-// Reviewed backend revisions are pinned for reproducible Wick builds.
+// Reviewed backend revisions are pinned for reproducible Afterglow builds.
 #if os(macOS)
     let backendSwiftSettings: [SwiftSetting] = [
         .define("MLX_METAL_BACKEND")
@@ -38,83 +38,7 @@ import PackageDescription
 let package = Package(
     name: "midnight-afterglow",
     platforms: [.macOS(.v15)],
-    products: [
-        .executable(name: "afterglow-int4-proof", targets: ["CompactInt4Proof"]),
-        .executable(name: "afterglow-int4-runtime-screen", targets: ["CompactInt4RuntimeScreen"]),
-        .executable(name: "midnight-afterglow", targets: ["AfterglowCLI"]),
-        .executable(name: "wick", targets: ["ModelQuantizer"]),
-        .executable(name: "facet", targets: ["ModelQuantizer"]),
-        .executable(
-            name: "wick-metal-quant-bench",
-            targets: ["MetalQuantizationBenchmark"]
-        ),
-        .executable(
-            name: "model-runner-metal-quant-bench",
-            targets: ["MetalQuantizationBenchmark"]
-        ),
-        .executable(
-            name: "wick-laguna-quantize",
-            targets: ["LagunaQuantizer"]
-        ),
-        .executable(
-            name: "model-runner-laguna-quantize",
-            targets: ["LagunaQuantizer"]
-        ),
-        .executable(
-            name: "wick-scale-plan",
-            targets: ["ScalePlanCLI"]
-        ),
-        .executable(
-            name: "model-runner-scale-plan",
-            targets: ["ScalePlanCLI"]
-        ),
-        .executable(
-            name: "wick-q4-scale-search-audit",
-            targets: ["Q4ScaleSearchAudit"]
-        ),
-        .executable(
-            name: "model-runner-q4-scale-search-audit",
-            targets: ["Q4ScaleSearchAudit"]
-        ),
-        .executable(
-            name: "wick-laguna-q4r8-rescore",
-            targets: ["LagunaScaleSearchRescorerCLI"]
-        ),
-        .executable(
-            name: "model-runner-laguna-q4r8-rescore",
-            targets: ["LagunaScaleSearchRescorerCLI"]
-        ),
-        .executable(
-            name: "model-runner-quantize",
-            targets: ["ModelQuantizer"]
-        ),
-        .executable(
-            name: "wick-laguna-q4r8-verify",
-            targets: ["LagunaQ4R8Verifier"]
-        ),
-        .executable(
-            name: "model-runner-laguna-q4r8-verify",
-            targets: ["LagunaQ4R8Verifier"]
-        ),
-        .executable(name: "wick-gemma-activation-stats", targets: ["GemmaActivationStats"]),
-        .executable(name: "wick-gemma-awss-quantize", targets: ["GemmaActivationQuantizer"]),
-        .executable(
-            name: "wick-mistral-activation-stats",
-            targets: ["MistralActivationStats"]
-        ),
-        .executable(
-            name: "model-runner-mistral-activation-stats",
-            targets: ["MistralActivationStats"]
-        ),
-        .executable(
-            name: "wick-mistral-awss-quantize",
-            targets: ["MistralActivationScaleSearchRescorer"]
-        ),
-        .executable(
-            name: "model-runner-mistral-awss-quantize",
-            targets: ["MistralActivationScaleSearchRescorer"]
-        ),
-    ],
+    products: [.executable(name: "midnight-afterglow", targets: ["AfterglowCLI"])],
     dependencies: [
         .package(url: "https://github.com/standrze/loom.git", exact: "0.1.1"),
         .package(url: "https://github.com/standrze/weft.git", exact: "0.1.1"),
@@ -138,14 +62,6 @@ let package = Package(
         ),
     ],
     targets: [
-        .target(name: "CompactInt4", resources: [.copy("Kernels")]),
-        .executableTarget(name: "CompactInt4Proof", dependencies: ["CompactInt4"]),
-        .testTarget(name: "CompactInt4Tests", dependencies: ["CompactInt4"]),
-        .executableTarget(
-            name: "CompactInt4RuntimeScreen",
-            dependencies: ["CompactInt4", .product(name: "MLX", package: "mlx-swift")],
-            path: "Benchmarks/CompactInt4RuntimeScreen"
-        ),
         .target(
             name: "AfterglowConsole",
             dependencies: [.product(name: "loom", package: "loom"), .product(name: "weft", package: "weft")]),
@@ -180,7 +96,7 @@ let package = Package(
                 .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
             ]),
         .target(
-            name: "WickModelSupport",
+            name: "AfterglowModelSupport",
             dependencies: [
                 .product(name: "MLX", package: "mlx-swift"),
                 .product(name: "MLXNN", package: "mlx-swift"),
@@ -189,48 +105,8 @@ let package = Package(
             ],
             swiftSettings: backendSwiftSettings
         ),
-        .target(name: "WickQualitySupport"),
         .target(name: "QuantizerSupport"),
         .testTarget(name: "QuantizerSupportTests", dependencies: ["QuantizerSupport"]),
-        .executableTarget(
-            name: "MetalQuantizationBenchmark",
-            dependencies: [
-                "WickModelSupport",
-                .product(name: "MLX", package: "mlx-swift"),
-                .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
-            ],
-            path: "Benchmarks/MetalQuantization"
-        ),
-        .executableTarget(
-            name: "LagunaQuantizer",
-            dependencies: [
-                "QuantizerSupport",
-                "WickModelSupport",
-                "ScalePlanMLX",
-                .product(name: "MLX", package: "mlx-swift"),
-                .product(name: "MLXNN", package: "mlx-swift"),
-                .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-            ]
-        ),
-        .target(
-            name: "ScalePlanMLX"
-        ),
-        .executableTarget(
-            name: "ScalePlanCLI",
-            dependencies: [
-                "ScalePlanMLX",
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-            ]
-        ),
-        .executableTarget(
-            name: "Q4ScaleSearchAudit",
-            dependencies: [
-                .product(name: "MLX", package: "mlx-swift"),
-                .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-            ]
-        ),
         .target(
             name: "LagunaScaleSearchCore",
             dependencies: [
@@ -241,83 +117,18 @@ let package = Package(
             ],
             path: "Sources/LagunaScaleSearchRescorer"
         ),
-        .executableTarget(
-            name: "LagunaScaleSearchRescorerCLI",
-            dependencies: [
-                "LagunaScaleSearchCore",
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-            ]
-        ),
-        .executableTarget(
-            name: "ModelQuantizer",
-            dependencies: ["QuantizationCommands", .product(name: "ArgumentParser", package: "swift-argument-parser")]),
         .target(
             name: "QuantizationCommands",
             dependencies: [
                 "QuantizerSupport",
                 "LagunaScaleSearchCore",
-                "WickModelSupport",
+                "AfterglowModelSupport",
                 .product(name: "MLX", package: "mlx-swift"),
                 .product(name: "MLXNN", package: "mlx-swift"),
                 .product(name: "MLXLLM", package: "mlx-swift-lm"),
                 .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]
-        ),
-        .executableTarget(
-            name: "LagunaQ4R8Verifier",
-            dependencies: [
-                .product(name: "ArgumentParser", package: "swift-argument-parser")
-            ]
-        ),
-        .target(
-            name: "GemmaActivationQuantizerCore",
-            dependencies: [
-                "MistralActivationScaleSearchCore", "WickModelSupport", "QuantizerSupport",
-                .product(name: "MLX", package: "mlx-swift"),
-                .product(name: "MLXNN", package: "mlx-swift"),
-                .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
-            ]
-        ),
-        .executableTarget(
-            name: "GemmaActivationQuantizer",
-            dependencies: [
-                "GemmaActivationQuantizerCore", "WickModelSupport", "QuantizerSupport",
-                .product(name: "MLX", package: "mlx-swift"),
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-            ],
-            swiftSettings: backendSwiftSettings
-        ),
-        .executableTarget(
-            name: "GemmaActivationStats",
-            dependencies: [
-                "MistralActivationScaleSearchCore",
-                "WickModelSupport",
-                .product(name: "MLX", package: "mlx-swift"),
-                .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
-                .product(name: "MLXHuggingFace", package: "mlx-swift-lm"),
-                .product(name: "HuggingFace", package: "swift-huggingface"),
-                .product(name: "Tokenizers", package: "swift-transformers"),
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-            ],
-            swiftSettings: backendSwiftSettings
-        ),
-        .executableTarget(
-            name: "MistralActivationStats",
-            dependencies: [
-                "MistralActivationScaleSearchCore",
-                "WickQualitySupport",
-                "WickModelSupport",
-                .product(name: "MLX", package: "mlx-swift"),
-                .product(name: "MLXNN", package: "mlx-swift"),
-                .product(name: "MLXLLM", package: "mlx-swift-lm"),
-                .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
-                .product(name: "MLXHuggingFace", package: "mlx-swift-lm"),
-                .product(name: "HuggingFace", package: "swift-huggingface"),
-                .product(name: "Tokenizers", package: "swift-transformers"),
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-            ],
-            swiftSettings: backendSwiftSettings
         ),
         .target(
             name: "MistralActivationScaleSearchCore",
@@ -325,26 +136,13 @@ let package = Package(
                 .product(name: "MLX", package: "mlx-swift")
             ]
         ),
-        .executableTarget(
-            name: "MistralActivationScaleSearchRescorer",
-            dependencies: [
-                "MistralActivationScaleSearchCore",
-                .product(name: "MLX", package: "mlx-swift"),
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-            ]
-        ),
-        .testTarget(
-            name: "ScalePlanMLXTests",
-            dependencies: ["ScalePlanMLX"]
-        ),
         .testTarget(
             name: "ModelQuantizerTests",
             dependencies: [
-                "GemmaActivationQuantizerCore",
                 "QuantizerSupport",
                 "MistralActivationScaleSearchCore",
                 "LagunaScaleSearchCore",
-                "WickModelSupport",
+                "AfterglowModelSupport",
                 .product(name: "MLX", package: "mlx-swift"),
                 .product(name: "MLXNN", package: "mlx-swift"),
                 .product(name: "MLXLLM", package: "mlx-swift-lm"),

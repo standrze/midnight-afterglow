@@ -1,6 +1,8 @@
 import Foundation
 
-/// Editable launch settings. Paths become individual process arguments, never shell commands.
+/// Editable launch settings.
+///
+/// Paths become individual process arguments, never shell commands.
 public struct AfterglowForm: Sendable {
     public enum Workflow: String, Sendable {
         case training = "Decision training"

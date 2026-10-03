@@ -2,9 +2,9 @@
 set -euo pipefail
 
 PACKAGE_ROOT="$(cd "$(dirname "$0")" && pwd)"
-# Wick owns these pinned overlays and its own dependency checkouts.
+# Afterglow owns these pinned overlays and its own dependency checkouts.
 DEPENDENCY_PACKAGE_ROOT="$PACKAGE_ROOT"
-export MODEL_RUNNER_SCRATCH_PATH="${WICK_SCRATCH_PATH:-${FACET_SCRATCH_PATH:-${MODEL_RUNNER_SCRATCH_PATH:-}}}"
+export MODEL_RUNNER_SCRATCH_PATH="${AFTERGLOW_SCRATCH_PATH:-}"
 if [[ ! -f "$DEPENDENCY_PACKAGE_ROOT/Package.swift" ]]; then
   echo "Dependency package root must contain Package.swift: $DEPENDENCY_PACKAGE_ROOT" >&2
   exit 2
@@ -336,4 +336,5 @@ apply_dependency_patch "mlx-swift-lm Q4 ScaleSearch G32" "$MLX_SWIFT_LM_CHECKOUT
 
 apply_dependency_patch "mlx-swift-lm Gemma calibration access" "$MLX_SWIFT_LM_CHECKOUT" "$PACKAGE_ROOT/Patches/mlx-swift-lm-gemma-calibration-access.patch"
 
-python3 "$PACKAGE_ROOT/Scripts/decision-training-patch.py" "$MLX_SWIFT_LM_CHECKOUT"
+apply_dependency_patch "mlx-swift checkpoint transform" "$MLX_SWIFT_CHECKOUT" "$PACKAGE_ROOT/Patches/mlx-swift-checkpoint-transform.patch"
+apply_dependency_patch "mlx-swift-lm checkpointed decision training" "$MLX_SWIFT_LM_CHECKOUT" "$PACKAGE_ROOT/Patches/mlx-swift-lm-decision-training.patch"

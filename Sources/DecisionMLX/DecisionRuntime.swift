@@ -9,7 +9,9 @@ import MLXLMCommon
 import MLXNN
 import Tokenizers
 
-/// An independent full-prompt reference scorer. No conversation cache is retained.
+/// An independent full-prompt reference scorer.
+///
+/// No conversation cache is retained.
 public enum DecisionRuntime {
     public static func load(model: URL, adapter: URL? = nil) async throws -> ModelContainer {
         let container = try await LLMModelFactory.shared.loadContainer(

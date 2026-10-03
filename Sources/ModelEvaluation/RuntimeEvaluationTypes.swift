@@ -1,6 +1,8 @@
 import Foundation
 
-/// Immutable inputs for a serial native benchmark. This command never downloads models.
+/// Immutable inputs for a serial native benchmark.
+///
+/// This command never downloads models.
 public struct RuntimeEvaluationPlan: Codable, Sendable {
     public var version: Int
     /// Omit for full qualification; screening uses two pairs and one warmup per worker.
@@ -59,7 +61,9 @@ public struct RuntimeEvaluationPlan: Codable, Sendable {
     }
 }
 
-/// Diagnostic paired rate/latency summary. Qualification requires all three phases.
+/// Diagnostic paired rate/latency summary.
+///
+/// Qualification requires all three phases.
 public struct RuntimeMetricSummary: Codable, Sendable {
     public var baselineMedian: Double
     public var candidateMedian: Double

@@ -1,8 +1,8 @@
+import AfterglowModelSupport
 import Foundation
 import MLX
 import MLXLMCommon
 import MLXNN
-import WickModelSupport
 import XCTest
 
 final class TalkieConversionTests: XCTestCase {
@@ -113,10 +113,12 @@ final class TalkieConversionTests: XCTestCase {
 
     func testCLIProvenanceAndOverwriteFailurePreserveCompletedCheckpoint() throws {
         let environment = ProcessInfo.processInfo.environment
-        guard let executable = environment["WICK_TEST_EXECUTABLE"] ?? environment["FACET_TEST_EXECUTABLE"],
+        guard let executable = environment["AFTERGLOW_TEST_EXECUTABLE"],
             !executable.isEmpty
         else {
-            throw XCTSkip("Set WICK_TEST_EXECUTABLE to the built wick executable to run the CLI conversion regression.")
+            throw XCTSkip(
+                "Set AFTERGLOW_TEST_EXECUTABLE to the built midnight-afterglow executable to run the CLI conversion regression."
+            )
         }
         try Device.withDefaultDevice(.cpu) {
             let manager = FileManager.default
@@ -218,7 +220,9 @@ final class TalkieConversionTests: XCTestCase {
     ) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
-        process.arguments = arguments
+        process.arguments =
+            arguments.first.map { ["quantize", "formats", "--help"].contains($0) } == true
+            ? arguments : ["quantize"] + arguments
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = pipe

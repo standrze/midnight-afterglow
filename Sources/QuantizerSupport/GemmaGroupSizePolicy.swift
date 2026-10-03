@@ -2,6 +2,7 @@ import CoreFoundation
 import Foundation
 
 /// A source-based Gemma policy for affine precision candidates and selectively grouped matrices.
+///
 /// Names and shapes are taken from the native MLXLLM model after construction.
 public struct GemmaGroupSizePolicy: Sendable {
     public struct Module: Sendable {
@@ -33,12 +34,14 @@ public struct GemmaGroupSizePolicy: Sendable {
     private let skippedModules: Set<String>
 
     /// Native Gemma 3 recreates its head from the embedding tensor triplet on load.
+    ///
     /// Its independent module path must therefore resolve the same nondefault Q8 geometry.
     public var requiresTiedHeadQuantizationAlias: Bool {
         omittedTiedHead && q8Modules.contains("model.embed_tokens")
     }
 
     /// Validates the complete policy before conversion creates any output directory.
+    ///
     /// The source must be unquantized; selective G128 never applies to embeddings, heads or routers.
     public init(
         sourceConfiguration: Data,
@@ -114,6 +117,7 @@ public struct GemmaGroupSizePolicy: Sendable {
     }
 
     /// Adds the runtime head's Q8 alias before validation and output publication.
+    ///
     /// Existing Q4 configurations are returned byte-for-byte unchanged.
     public func finalizedOutputConfiguration(_ data: Data) throws -> Data {
         guard requiresTiedHeadQuantizationAlias else {
@@ -140,6 +144,7 @@ public struct GemmaGroupSizePolicy: Sendable {
     }
 
     /// Checks both aliases, all resolved geometries and source configuration preservation.
+    ///
     /// This validates metadata; `validateOutputWeights` separately checks the packed tensors.
     public func validateOutputConfiguration(_ data: Data) throws {
         let source = try Self.object(sourceConfiguration)
@@ -199,6 +204,7 @@ public struct GemmaGroupSizePolicy: Sendable {
     }
 
     /// Reads only output safetensors headers before the output transaction is committed.
+    ///
     /// Dimensions come from the native model; this does not establish finite values or model quality.
     public func validateOutputWeights(_ shards: [URL]) throws {
         let tensors = try Self.readHeaders(shards).mapValues(\.header)
@@ -234,8 +240,8 @@ public struct GemmaGroupSizePolicy: Sendable {
     }
 
     /// Rejects packed sources and resolves Gemma 3's tied head without evaluating MLX arrays.
-    /// Duplicate floating heads are tied only if their complete stored payloads match the embedding.
-    /// Comparisons read at most two MiB at a time; the complete source weights are never materialized.
+    ///
+    /// Duplicate floating heads are tied only if their complete stored payloads match the embedding. Comparisons read at most two MiB at a time; the complete source weights are never materialized.
     public static func preservesGemma3TiedHead(sourceConfiguration: Data, shards: [URL]) throws -> Bool {
         let config = try object(sourceConfiguration)
         let text = config["text_config"] as? [String: Any] ?? config

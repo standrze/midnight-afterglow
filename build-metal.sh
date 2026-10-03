@@ -1,33 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-WICK_ROOT="$(cd "$(dirname "$0")" && pwd)"
-PACKAGE_ROOT="$WICK_ROOT"
+AFTERGLOW_ROOT="$(cd "$(dirname "$0")" && pwd)"
+PACKAGE_ROOT="$AFTERGLOW_ROOT"
 cd "$PACKAGE_ROOT"
-
-BUILD_CONFIGURATION="${WICK_BUILD_CONFIGURATION:-${FACET_BUILD_CONFIGURATION:-${MODEL_RUNNER_BUILD_CONFIGURATION:-release}}}"
-BUILD_PRODUCT="${WICK_BUILD_PRODUCT:-${FACET_BUILD_PRODUCT:-${MODEL_RUNNER_BUILD_PRODUCT:-midnight-afterglow}}}"
-BUILD_JOBS="${WICK_BUILD_JOBS:-${FACET_BUILD_JOBS:-${MODEL_RUNNER_BUILD_JOBS:-2}}}"
-PINNED_MLX="${MODEL_RUNNER_PINNED_MLX:-0}"
+BUILD_CONFIGURATION="${AFTERGLOW_BUILD_CONFIGURATION:-debug}"
+BUILD_PRODUCT="midnight-afterglow"
+BUILD_JOBS="${AFTERGLOW_BUILD_JOBS:-2}"
+case "$BUILD_CONFIGURATION" in debug|release) ;; *) echo "AFTERGLOW_BUILD_CONFIGURATION must be debug or release." >&2; exit 2 ;; esac
 if ! [[ "$BUILD_JOBS" =~ ^[1-9][0-9]*$ ]]; then
-  echo "WICK_BUILD_JOBS (or a compatibility fallback) must be a positive integer." >&2
+  echo "AFTERGLOW_BUILD_JOBS must be a positive integer." >&2
   exit 2
 fi
-case "$BUILD_CONFIGURATION" in
-  debug|release) ;;
-  *)
-    echo "WICK_BUILD_CONFIGURATION (or a compatibility fallback) must be debug or release." >&2
-    exit 2
-    ;;
-esac
-
-case "$PINNED_MLX" in
-  0|1) ;;
-  *)
-    echo "MODEL_RUNNER_PINNED_MLX must be 0 or 1." >&2
-    exit 2
-    ;;
-esac
 
 if ! xcrun -sdk macosx --find metal >/dev/null 2>&1; then
   echo "The Metal compiler is missing. Install it once with:"
@@ -35,16 +19,8 @@ if ! xcrun -sdk macosx --find metal >/dev/null 2>&1; then
   exit 1
 fi
 
-MODEL_RUNNER_DEPENDENCY_PACKAGE_ROOT="$PACKAGE_ROOT" "$WICK_ROOT/prepare-dependencies.sh"
-
-# Experimental only: the matched Q4R8 A/B did not show a repeatable speed win.
-if [[ "$PINNED_MLX" == "1" ]]; then
-  swift build --configuration "$BUILD_CONFIGURATION" --jobs "$BUILD_JOBS" \
-    -Xswiftc -DMODEL_RUNNER_PINNED_MLX \
-    --product "$BUILD_PRODUCT"
-else
-  swift build --configuration "$BUILD_CONFIGURATION" --jobs "$BUILD_JOBS" --product "$BUILD_PRODUCT"
-fi
+"$AFTERGLOW_ROOT/prepare-dependencies.sh"
+swift build --configuration "$BUILD_CONFIGURATION" --jobs "$BUILD_JOBS" --product "$BUILD_PRODUCT"
 
 BIN_DIR="$(swift build --configuration "$BUILD_CONFIGURATION" --show-bin-path)"
 MLX_SOURCE_ROOT="$PACKAGE_ROOT/.build/checkouts/mlx-swift/Source/Cmlx/mlx"

@@ -11,10 +11,9 @@ public struct GemmaActivationWeightedScaleSearchResult {
     public let retainedModuleReason: String?
 }
 
-/// Projection fitting for native Gemma 4 affine Q4/G64 templates. The checkpoint
-/// driver must supply tensors from the independently validated BF16 source and
-/// actual template, and preserve every unselected tensor and all sidecars.
-/// This fits a diagonal output-error proxy, not model-level coding accuracy.
+/// Projection fitting for native Gemma 4 affine Q4/G64 templates.
+///
+/// The checkpoint driver must supply tensors from the independently validated BF16 source and actual template, and preserve every unselected tensor and all sidecars. This fits a diagonal output-error proxy, not model-level coding accuracy.
 public final class GemmaActivationWeightedScaleSearch {
     private let calibration: GemmaActivationStatistics
     private let development: GemmaActivationStatistics

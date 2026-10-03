@@ -12,7 +12,7 @@ import tempfile
 import termios
 import time
 
-binary = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else '.build/release/midnight-afterglow')
+binary = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else '.build/debug/midnight-afterglow')
 
 def read_until(master, marker, timeout=15):
     data = b''

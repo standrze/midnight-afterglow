@@ -20,10 +20,10 @@ final class GemmaPrecisionConversionTests: XCTestCase {
 
     private func verifyCandidates(modelType: String, moe: Bool) throws {
         let executable =
-            ProcessInfo.processInfo.environment["WICK_TEST_EXECUTABLE"]
-            ?? FileManager.default.currentDirectoryPath + "/.build/release/wick"
+            ProcessInfo.processInfo.environment["AFTERGLOW_TEST_EXECUTABLE"]
+            ?? FileManager.default.currentDirectoryPath + "/.build/debug/midnight-afterglow"
         guard FileManager.default.isExecutableFile(atPath: executable) else {
-            throw XCTSkip("Set WICK_TEST_EXECUTABLE to the built Wick CLI")
+            throw XCTSkip("Set AFTERGLOW_TEST_EXECUTABLE to the built Afterglow CLI")
         }
         try Device.withDefaultDevice(.cpu) {
             let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -142,7 +142,9 @@ final class GemmaPrecisionConversionTests: XCTestCase {
     private func runCLI(executable: String, arguments: [String]) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
-        process.arguments = arguments
+        process.arguments =
+            arguments.first.map { ["quantize", "formats", "--help"].contains($0) } == true
+            ? arguments : ["quantize"] + arguments
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = pipe

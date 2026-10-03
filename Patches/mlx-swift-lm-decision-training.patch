@@ -1,0 +1,61 @@
+diff --git a/Libraries/MLXLMCommon/GatedDelta.swift b/Libraries/MLXLMCommon/GatedDelta.swift
+index 39d012ea..c467f982 100644
+--- a/Libraries/MLXLMCommon/GatedDelta.swift
++++ b/Libraries/MLXLMCommon/GatedDelta.swift
+@@ -252,6 +252,35 @@ func gatedDeltaOps(
+ 
+     var state = state ?? MLXArray.zeros([B, Hv, Dv, Dk], dtype: .float32)
+ 
++    // Afterglow checkpointed recurrent chunks: all differentiable inputs are explicit.
++    if GatedDeltaExecution.checkpointTraining {
++        let chunk = checkpoint { arrays in
++            var current = arrays[5]
++            var output: [MLXArray] = []
++            for index in 0..<arrays[0].dim(1) {
++                let (y, next) = gatedDeltaStepOps(
++                    q: arrays[0][0..., index], k: arrays[1][0..., index],
++                    v: arrays[2][0..., index], g: arrays[3][0..., index],
++                    beta: arrays[4][0..., index], state: current,
++                    mask: arrays.count == 7 ? arrays[6][0..., index] : nil)
++                output.append(y)
++                current = next
++            }
++            return [MLX.stacked(output, axis: 1), current]
++        }
++        var outputs: [MLXArray] = []
++        for start in stride(from: 0, to: T, by: 16) {
++            let end = min(start + 16, T)
++            var arrays = [q[0..., start..<end], k[0..., start..<end], v[0..., start..<end],
++                g[0..., start..<end], beta[0..., start..<end], state]
++            if let mask { arrays.append(mask[0..., start..<end]) }
++            let result = chunk(arrays)
++            outputs.append(result[0])
++            state = result[1]
++        }
++        return (MLX.concatenated(outputs, axis: 1), state)
++    }
++
+     var ys = [MLXArray]()
+     ys.reserveCapacity(T)
+ 
+@@ -282,6 +311,11 @@ func gatedDeltaOps(
+ 
+ // MARK: - Public API
+ 
++public enum GatedDeltaExecution {
++    @TaskLocal public static var useMetalKernel = true
++    @TaskLocal public static var checkpointTraining = false
++}
++
+ public func gatedDeltaUpdate(
+     q: MLXArray,
+     k: MLXArray,
+@@ -315,7 +349,7 @@ public func gatedDeltaUpdate(
+     // Dk = 192 (a multiple of 32), but the value is config-driven, so route any
+     // non-multiple-of-32 Dk to the ops fallback, which handles an arbitrary key
+     // dimension correctly (slower, but never truncating).
+-    if GatedDeltaKernelManager.shared.kernel != nil, Dk % 32 == 0 {
++    if GatedDeltaExecution.useMetalKernel, GatedDeltaKernelManager.shared.kernel != nil, Dk % 32 == 0 {
+         return gatedDeltaKernel(q: q, k: k, v: v, g: g, beta: beta, state: state, mask: mask)
+     }
+ 

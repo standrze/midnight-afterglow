@@ -140,7 +140,8 @@ public enum DecisionTrainer {
                         state = try JSONDecoder().decode(
                             State.self, from: Data(contentsOf: checkpoint.appendingPathComponent("state.json")))
                         guard state.format == 1, state.identity == identity,
-                            state.totalUpdates == options.epochs * ((rows.count + options.batchSize - 1) / options.batchSize),
+                            state.totalUpdates == options.epochs
+                                * ((rows.count + options.batchSize - 1) / options.batchSize),
                             try encoder.encode(state.options) == encoder.encode(options),
                             state.order.sorted() == Array(rows.indices), (0...rows.count).contains(state.cursor),
                             (0...state.totalUpdates).contains(state.completed)

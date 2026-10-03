@@ -1,3 +1,4 @@
+import AfterglowModelSupport
 import ArgumentParser
 import Foundation
 import LagunaScaleSearchCore
@@ -6,16 +7,9 @@ import MLXLLM
 import MLXLMCommon
 import MLXNN
 import QuantizerSupport
-import WickModelSupport
 
-private enum WickMetadata {
+private enum AfterglowMetadata {
     static let version = "0.2.0"
-
-    static var commandName: String {
-        let executableName = URL(fileURLWithPath: CommandLine.arguments[0]).lastPathComponent
-        let supportedNames = ["wick", "facet", "model-runner-quantize"]
-        return supportedNames.contains(executableName) ? executableName : "wick"
-    }
 }
 
 private struct IgnoredConfigurationValue: Decodable {}
@@ -56,7 +50,7 @@ private struct QuantizerProvenance: Encodable {
     var boundedMemory: Bool
     var format = 1
     var tool = "midnight-afterglow"
-    var toolVersion = WickMetadata.version
+    var toolVersion = AfterglowMetadata.version
     var status: String
     var algorithm: String
     var createdAt: String
@@ -236,7 +230,7 @@ public struct ModelQuantizer: AsyncParsableCommand {
             keep their routing projections in standard affine Q8. Dense models such as Mistral and
             Llama use searched affine Q4 for eligible matrices by default.
             --mode or --bits selects standard MLX quantization. --calibration scale-search
-            explicitly selects searched affine Q4/G64 or Q4/G128. See `wick formats` for geometry.
+            explicitly selects searched affine Q4/G64 or Q4/G128. See `midnight-afterglow formats` for geometry.
 
             Talkie uses Wick's native model adapter and folds the learned output-head
             gain into its BF16 weight before quantization. Source projection names are
@@ -250,7 +244,7 @@ public struct ModelQuantizer: AsyncParsableCommand {
             Laguna can additionally use --template to invoke the proven bounded-memory streaming
             converter while preserving its expert layout and exact Q8 router policy.
             """,
-        version: WickMetadata.version
+        version: AfterglowMetadata.version
     )
 
     @Argument(help: "Unquantized local safetensors LLM or DFlash drafter directory.")

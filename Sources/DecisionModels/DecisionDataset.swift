@@ -1,6 +1,8 @@
 import Foundation
 
-/// Labeled JSONL record. Labels are never part of the model request.
+/// Labeled JSONL record.
+///
+/// Labels are never part of the model request.
 public struct DecisionExample: Sendable {
     public let id: String
     public let sourceFamily: String
@@ -14,7 +16,11 @@ public enum DecisionDataset {
         guard data.count <= 256 * 1_048_576 else { throw DecisionError.invalidRequest("Dataset exceeds 256 MiB.") }
         struct Labels: Decodable {
             let id: String
-            let source_family: String
+            let sourceFamily: String
+            enum CodingKeys: String, CodingKey {
+                case id, labels
+                case sourceFamily = "source_family"
+            }
             let labels: [String: DecisionValue]
         }
         var seen = Set<String>()
@@ -22,7 +28,7 @@ public enum DecisionDataset {
             guard bytes.count <= 1_048_576 else { throw DecisionError.invalidRequest("Dataset row exceeds 1 MiB.") }
             let rowData = Data(bytes)
             let metadata = try JSONDecoder().decode(Labels.self, from: rowData)
-            guard !metadata.id.isEmpty, !metadata.source_family.isEmpty, seen.insert(metadata.id).inserted else {
+            guard !metadata.id.isEmpty, !metadata.sourceFamily.isEmpty, seen.insert(metadata.id).inserted else {
                 throw DecisionError.invalidRequest("Missing or duplicate example ID/family at line \(line + 1).")
             }
             let request = try DecisionRequest.decode(rowData)
@@ -40,7 +46,7 @@ public enum DecisionDataset {
                 }
             }
             return DecisionExample(
-                id: metadata.id, sourceFamily: metadata.source_family, request: request, labels: metadata.labels)
+                id: metadata.id, sourceFamily: metadata.sourceFamily, request: request, labels: metadata.labels)
         }
     }
 

@@ -12,8 +12,10 @@ Exports/
 __pycache__/
 *.pyc
 /EvaluationRuns/
-/Benchmarks/*ActualInputs*/
-/Benchmarks/GemmaQuantization*/
 *.safetensors
 *.gguf
 *.agq4
+
+/models/
+/runs/
+/exports/

@@ -11,8 +11,9 @@ public enum GemmaActivationStatisticsError: Error, LocalizedError {
     }
 }
 
-/// Full-content reproducibility identity, not publisher authentication. Capture
-/// before collection; publication/load recapture it to reject changed sources.
+/// Full-content reproducibility identity, not publisher authentication.
+///
+/// Capture before collection; publication/load recapture it to reject changed sources.
 public struct GemmaActivationSourceIdentity: Codable, Equatable {
     public let directory: String
     public let configFingerprint: String
@@ -207,8 +208,9 @@ public struct GemmaActivationStatistics {
         try validate()
     }
 
-    /// Call with the projection inventory independently obtained from the source
-    /// model, not the manifest's own inventory. All tensors must match exactly.
+    /// Call with the projection inventory independently obtained from the source model, not the manifest's own inventory.
+    ///
+    /// All tensors must match exactly.
     public static func load(
         from url: URL, source: URL, expectedProjectionShapes: [String: [Int]],
         expectedExpertsPerToken: Int, expectedMinimumExpertPositions: Int
@@ -252,8 +254,9 @@ public struct GemmaActivationStatistics {
             minimumExpertPositions: manifest.minimumExpertPositions, expertsPerToken: manifest.expertsPerToken)
     }
 
-    /// Publish to a new file only; source changes or a failed write leave the
-    /// existing destination untouched. The temporary file stays beside its target.
+    /// Publish to a new file only; source changes or a failed write leave the existing destination untouched.
+    ///
+    /// The temporary file stays beside its target.
     public func write(to destination: URL) throws {
         try validate()
         try provenance.source.requireUnchanged()

@@ -16,7 +16,10 @@ final class BoundedConversionTests: XCTestCase {
                         let weight = MLXArray(values).reshaped(shape).asType(dtype)
                         let whole = q4AffineScaleSearchQuantized(weight)
                         let batched = q4AffineScaleSearchQuantized(weight, rowBatchSize: 64)
-                        for (a, b) in [(whole.weight, batched.weight), (whole.scales, batched.scales), (whole.biases, batched.biases)] {
+                        for (a, b) in [
+                            (whole.weight, batched.weight), (whole.scales, batched.scales),
+                            (whole.biases, batched.biases),
+                        ] {
                             XCTAssertEqual(a.shape, b.shape)
                             XCTAssertEqual(a.dtype, b.dtype)
                             XCTAssertTrue(MLX.all(a .== b).item(Bool.self))
@@ -38,7 +41,9 @@ final class BoundedConversionTests: XCTestCase {
             let middle = Date()
             let large = q4AffineScaleSearchQuantized(weight, rowBatchSize: 512)
             eval(large.weight, large.scales, large.biases)
-            print("Metal batch timing: 64 rows \(middle.timeIntervalSince(started))s; 512 rows \(Date().timeIntervalSince(middle))s")
+            print(
+                "Metal batch timing: 64 rows \(middle.timeIntervalSince(started))s; 512 rows \(Date().timeIntervalSince(middle))s"
+            )
             for (a, b) in [(small.weight, large.weight), (small.scales, large.scales), (small.biases, large.biases)] {
                 XCTAssertTrue(MLX.all(a .== b).item(Bool.self))
             }
@@ -51,20 +56,28 @@ final class BoundedConversionTests: XCTestCase {
             let source = root.appendingPathComponent("source")
             try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
             defer { try? FileManager.default.removeItem(at: root) }
-            let data = Data(#"{"model_type":"mixtral","vocab_size":128,"hidden_size":64,"intermediate_size":128,"num_hidden_layers":2,"num_attention_heads":4,"num_key_value_heads":2,"num_local_experts":4,"num_experts_per_tok":2,"rms_norm_eps":0.00001,"rope_theta":1000000,"tie_word_embeddings":false}"#.utf8)
+            let data = Data(
+                #"{"model_type":"mixtral","vocab_size":128,"hidden_size":64,"intermediate_size":128,"num_hidden_layers":2,"num_attention_heads":4,"num_key_value_heads":2,"num_local_experts":4,"num_experts_per_tok":2,"rms_norm_eps":0.00001,"rope_theta":1000000,"tie_word_embeddings":false}"#
+                    .utf8)
             try data.write(to: source.appendingPathComponent("config.json"))
             let model = MixtralModel(try JSONDecoder().decode(MixtralConfiguration.self, from: data))
-            try save(arrays: Dictionary(uniqueKeysWithValues: model.parameters().flattened()), url: source.appendingPathComponent("model.safetensors"))
-            var options = ModelConversionOptions(bits: 4, groupSize: 64, calibration: .q4AffineScaleSearch,
+            try save(
+                arrays: Dictionary(uniqueKeysWithValues: model.parameters().flattened()),
+                url: source.appendingPathComponent("model.safetensors"))
+            var options = ModelConversionOptions(
+                bits: 4, groupSize: 64, calibration: .q4AffineScaleSearch,
                 quantizationPredicate: { path, _ in
                     if path.hasSuffix(".block_sparse_moe.gate") { return .quantize(.init(bits: 8, groupSize: 64)) }
                     if path.hasSuffix(".input_layernorm") { return .skip }
                     return .quantize()
                 })
-            let eager = try await LLMModelFactory.shared.convert(from: source, to: root.appendingPathComponent("eager"), options: options)
+            let eager = try await LLMModelFactory.shared.convert(
+                from: source, to: root.appendingPathComponent("eager"), options: options)
             options.boundedMemory = true
-            let bounded = try await LLMModelFactory.shared.convert(from: source, to: root.appendingPathComponent("bounded"), options: options)
-            var a = [String: MLXArray](), b = [String: MLXArray]()
+            let bounded = try await LLMModelFactory.shared.convert(
+                from: source, to: root.appendingPathComponent("bounded"), options: options)
+            var a = [String: MLXArray]()
+            var b = [String: MLXArray]()
             for url in eager.weightsURLs { a.merge(try loadArrays(url: url)) { _, new in new } }
             for url in bounded.weightsURLs { b.merge(try loadArrays(url: url)) { _, new in new } }
             XCTAssertEqual(Set(a.keys), Set(b.keys))
@@ -73,8 +86,9 @@ final class BoundedConversionTests: XCTestCase {
                 XCTAssertEqual(value.shape, other.shape, name)
                 XCTAssertTrue(MLX.all(value .== other).item(Bool.self), name)
             }
-            XCTAssertEqual(try Data(contentsOf: eager.outputDirectory.appendingPathComponent("config.json")),
-                           try Data(contentsOf: bounded.outputDirectory.appendingPathComponent("config.json")))
+            XCTAssertEqual(
+                try Data(contentsOf: eager.outputDirectory.appendingPathComponent("config.json")),
+                try Data(contentsOf: bounded.outputDirectory.appendingPathComponent("config.json")))
         }
     }
 }

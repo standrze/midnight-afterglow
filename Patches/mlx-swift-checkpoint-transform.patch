@@ -1,0 +1,39 @@
+diff --git a/Source/MLX/Transforms.swift b/Source/MLX/Transforms.swift
+index e9e8c7b6..549ae44d 100644
+--- a/Source/MLX/Transforms.swift
++++ b/Source/MLX/Transforms.swift
+@@ -87,3 +87,34 @@ public func valueAndGrad<T>(
+ ) {
+     buildValueAndGradient(f)
+ }
++
++
++/// Recompute intermediate activations during backward evaluation.
++public func checkpoint(_ function: @escaping ([MLXArray]) -> [MLXArray]) -> ([MLXArray]) -> [MLXArray] {
++    let owner = AfterglowCheckpoint(function)
++    return { owner.call($0) }
++}
++
++private final class AfterglowCheckpoint {
++    private var transformed: mlx_closure
++    init(_ function: @escaping ([MLXArray]) -> [MLXArray]) {
++        let original = new_mlx_closure(function)
++        defer { mlx_closure_free(original) }
++        var result = mlx_closure_new()
++        let status = withEvalLock { mlx_checkpoint(&result, original) }
++        precondition(status == 0, "Checkpoint transform failed")
++        transformed = result
++    }
++    deinit { withEvalLock { mlx_closure_free(transformed) } }
++    func call(_ arrays: [MLXArray]) -> [MLXArray] {
++        withEvalLock {
++            let inputs = new_mlx_vector_array(arrays)
++            defer { mlx_vector_array_free(inputs) }
++            var outputs = mlx_vector_array_new()
++            defer { mlx_vector_array_free(outputs) }
++            let status = mlx_closure_apply(&outputs, transformed, inputs)
++            precondition(status == 0, "Checkpoint evaluation failed")
++            return mlx_vector_array_values(outputs)
++        }
++    }
++}

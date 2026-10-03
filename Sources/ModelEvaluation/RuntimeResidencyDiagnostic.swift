@@ -15,7 +15,9 @@ public struct RuntimeResidencyDiagnosticPlan: Codable, Sendable {
     public var exclusiveProcessIDs: [Int32]
 }
 
-/// Request/session residency investigation. Its results never qualify a quantization recipe.
+/// Request/session residency investigation.
+///
+/// Its results never qualify a quantization recipe.
 public enum RuntimeResidencyDiagnostic {
     struct Registration: Decodable {
         var format: String

@@ -4,15 +4,16 @@ import MLXLMCommon
 import MLXNN
 import XCTest
 
-@testable import WickModelSupport
+@testable import AfterglowModelSupport
 
 final class DFlashFormatTests: XCTestCase {
     func testMXFP4CLIConversionProtectsQ8ModulesAndDraftsAfterReload() async throws {
         let environment = ProcessInfo.processInfo.environment
-        guard let executable = environment["WICK_TEST_EXECUTABLE"] ?? environment["FACET_TEST_EXECUTABLE"],
+        guard let executable = environment["AFTERGLOW_TEST_EXECUTABLE"],
             !executable.isEmpty
         else {
-            throw XCTSkip("Set WICK_TEST_EXECUTABLE to the built wick executable for CLI format tests.")
+            throw XCTSkip(
+                "Set AFTERGLOW_TEST_EXECUTABLE to the built midnight-afterglow executable for CLI format tests.")
         }
         try await Device.withDefaultDevice(.cpu) {
             let manager = FileManager.default

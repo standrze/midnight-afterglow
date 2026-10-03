@@ -1,15 +1,11 @@
-# midnight-afterglow
+# Afterglow
 
-Own training, calibration, checkpoint conversion, quantization, evaluation and
-model exports here. Serving and HTTP API code belong in Midnight. This package
-must build without sibling checkouts. Preserve pinned dependencies, notices,
-import provenance, standard MLX checkpoint layouts and per-module quantization.
+Keep this repository focused on the `midnight-afterglow` command-line app, its
+required libraries, tests, build overlays, and documentation. Serving belongs in
+Midnight; inspection belongs in Studio. Do not upload weights, generated outputs,
+web interfaces, unrelated tools, or research campaigns here.
 
-Follow Docs/SwiftProjectStyle.md. Format only touched Swift files and verify them
-with swift format. Run ./test.sh for meaningful fixture checks. Full-model
-validation must record source revisions, precision, memory and quality evidence.
-
-Keep labels outside decision prompts, data splits disjoint by source family,
-and calibration specific to the exported weights. Checkpoint/export writes are
-transactional; never overwrite source weights or existing runs. Do not publish
-weights without explicit authorization. Never log tokens or private raw datasets.
+Follow `Documentation/SwiftProjectStyle.md`, adapted from `~/asslayer`.
+Use `Scripts/format-swift.sh` and `Scripts/check-swift-format.sh` for Swift edits.
+Keep loom and weft lowercase. Run `./test.sh`; for terminal changes also run
+`python3 Tests/terminal-smoke.py .build/debug/midnight-afterglow`.

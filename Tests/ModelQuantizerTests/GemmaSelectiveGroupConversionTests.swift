@@ -1,10 +1,10 @@
+import AfterglowModelSupport
 import Foundation
 import MLX
 import MLXLLM
 import MLXLMCommon
 import MLXNN
 import QuantizerSupport
-import WickModelSupport
 import XCTest
 
 final class GemmaSelectiveGroupConversionTests: XCTestCase {

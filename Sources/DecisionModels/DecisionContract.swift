@@ -60,7 +60,9 @@ public struct DecisionField: Codable, Equatable, Sendable {
     public var values: [DecisionValue] { choices ?? [.boolean(false), .boolean(true)] }
 }
 
-/// Request for candidate scoring. Field order is preserved by `decode`.
+/// Request for candidate scoring.
+///
+/// Field order is preserved by `decode`.
 public struct DecisionRequest: Codable, Sendable {
     public var model: String
     public var context: String

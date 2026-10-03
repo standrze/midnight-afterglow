@@ -1,0 +1,345 @@
+[
+  {
+    "path": "LICENSE",
+    "origin": "wick/LICENSE",
+    "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "current_sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+  },
+  {
+    "path": "build.sh",
+    "origin": "wick/build.sh",
+    "sha256": "a65fa2c6215af51a5e98014bda418df9abf647ae729e5d24e373386a08ee70d5",
+    "current_sha256": "7aebcc60cae737aadf3dae59306a88dab9ba3dd3392d14cd676721b7c36fd658"
+  },
+  {
+    "path": "Package.resolved",
+    "origin": "wick/Package.resolved",
+    "sha256": "35f904a9173f1b54045f765c5fa5069274139f0c5904aecebd298b3533502a18",
+    "current_sha256": "86bb81a4310064174bef784b04ec16c6ab5d6d45ee62d15dc753f773a9d375e0"
+  },
+  {
+    "path": "Package.swift",
+    "origin": "wick/Package.swift",
+    "sha256": "734f16bd63f070b83a9062c1b048e4c3faed39f5f4291fc86a8ec3ec87d78a44",
+    "current_sha256": "23d437b1b5be4b17e9183dd3aae165a9ad670c756abdea26e0cfd7faaf209065"
+  },
+  {
+    "path": "test.sh",
+    "origin": "wick/test.sh",
+    "sha256": "8042c201e2cb76dc0ceee6e69641607fe7857d233ebf9238eb4ba8347f7f808a",
+    "current_sha256": "5f1db6ada6fbe2544316c0bd63f8d8c339e9ad2223ca6cc5b4693c9c5d8853ca"
+  },
+  {
+    "path": "build-metal.sh",
+    "origin": "wick/build-metal.sh",
+    "sha256": "f986446cc9c44a599a52e166cad88ebc516cd07a0aa93555feb9a5122bf76d7f",
+    "current_sha256": "6cdb1efa377e3c45ba836bf1c738906055839bc982bcf7951911cfb0415f796a"
+  },
+  {
+    "path": "Scripts/optional-dependency-patch.sh",
+    "origin": "wick/Scripts/optional-dependency-patch.sh",
+    "sha256": "b0694a81db34f31985e0a3fe4e8028e127250dce1e1188a8dd05e91f1d7565c1",
+    "current_sha256": "b0694a81db34f31985e0a3fe4e8028e127250dce1e1188a8dd05e91f1d7565c1"
+  },
+  {
+    "path": "Scripts/swiftpm-scratch-path.sh",
+    "origin": "wick/Scripts/swiftpm-scratch-path.sh",
+    "sha256": "e51a167ba38de0171db75548e801e2c4c5c15445a2a14b73617a7274918a74e9",
+    "current_sha256": "e51a167ba38de0171db75548e801e2c4c5c15445a2a14b73617a7274918a74e9"
+  },
+  {
+    "path": "Scripts/gate-up-slices-patch.sh",
+    "origin": "wick/Scripts/gate-up-slices-patch.sh",
+    "sha256": "8f0e6bcd9533cb3d63447148e30c986eb8bf6de748f86027c29846ac47673511",
+    "current_sha256": "8f0e6bcd9533cb3d63447148e30c986eb8bf6de748f86027c29846ac47673511"
+  },
+  {
+    "path": "Scripts/compile-cache-lifetime-patch.sh",
+    "origin": "wick/Scripts/compile-cache-lifetime-patch.sh",
+    "sha256": "3dc5cc7c66aeaf5f7e3c7a8898b70ebe8c909ca2ee21ccea8e75f912a85b0673",
+    "current_sha256": "3dc5cc7c66aeaf5f7e3c7a8898b70ebe8c909ca2ee21ccea8e75f912a85b0673"
+  },
+  {
+    "path": "Sources/AfterglowModelSupport/LagunaFusedGatherSilu.swift",
+    "origin": "wick/Sources/WickModelSupport/LagunaFusedGatherSilu.swift",
+    "sha256": "01f32d4b94719c0afdc08063df7dcb4555f20dd9f6299dbf3097223a0e717fd1",
+    "current_sha256": "84a9e95960dca2924b2bc42caf83928fb86564a625aeda3ee7863e517ba8d7ba"
+  },
+  {
+    "path": "Sources/AfterglowModelSupport/Gemma4ProjectionInputRecorder.swift",
+    "origin": "wick/Sources/WickModelSupport/Gemma4ProjectionInputRecorder.swift",
+    "sha256": "7da884e2fd83a2430f5f25b9595e3d337447135f479b8672223c8cb5e0f8ebf7",
+    "current_sha256": "04bb8e4a678a9b46224055fd0bf28726055781237abfb5b76782037db4e3479f"
+  },
+  {
+    "path": "Sources/AfterglowModelSupport/LagunaDFlashModel.swift",
+    "origin": "wick/Sources/WickModelSupport/LagunaDFlashModel.swift",
+    "sha256": "f9122926069a802e4c76d06bd3fdb00c3af98a96493d5141b156e52935b70467",
+    "current_sha256": "4cb768b2ce941d833e9625d7cfd240a5a9089caea01dc0822ae1f3108a1e3a5b"
+  },
+  {
+    "path": "Sources/AfterglowModelSupport/LagunaRoutedActivationStatistics.swift",
+    "origin": "wick/Sources/WickModelSupport/LagunaRoutedActivationStatistics.swift",
+    "sha256": "b2627e52b8b0b35a2a30831f748dfd1594d8707a8cf15680b8eb33247ef607e3",
+    "current_sha256": "f2f3d7e7a9e8bb0584d8b6a1b84f04acc66c2d6abdedd8d0a84a0d2492caa94f"
+  },
+  {
+    "path": "Sources/AfterglowModelSupport/MLXResourceLimits.swift",
+    "origin": "wick/Sources/WickModelSupport/MLXResourceLimits.swift",
+    "sha256": "9f0e51e2111b55217f69c06150ab24763bcb6756cebf4534e32dd1f41a94568b",
+    "current_sha256": "1583e1403ce8bf72b4acdacd5ed690911fb3b8cef7686d66de14ad0ce6f2ab83"
+  },
+  {
+    "path": "Sources/AfterglowModelSupport/ModelEngine.swift",
+    "origin": "wick/Sources/WickModelSupport/ModelEngine.swift",
+    "sha256": "1d7b76df71ee6d019b6b541513ca68aebad13f497bfe084fbba3eecd324f64e9",
+    "current_sha256": "1d7b76df71ee6d019b6b541513ca68aebad13f497bfe084fbba3eecd324f64e9"
+  },
+  {
+    "path": "Sources/AfterglowModelSupport/MLXResourceGuard.swift",
+    "origin": "wick/Sources/WickModelSupport/MLXResourceGuard.swift",
+    "sha256": "dc6cf0bb844c576c566fe0b4df8341f4385b76e5794660ef2e5933b640b63470",
+    "current_sha256": "df4d8b9a03ea94fa53e657ce66eaa412fdbdda51b0134f803f26bc813aefe065"
+  },
+  {
+    "path": "Sources/AfterglowModelSupport/SelectiveSafetensorsReader.swift",
+    "origin": "wick/Sources/WickModelSupport/SelectiveSafetensorsReader.swift",
+    "sha256": "6ec7f13fbfd686e75bb65cf8ddcdb3e7d78c780cccd265742c940f36f6e7805b",
+    "current_sha256": "e94925e0cecdbad1532f7eb200b3ba12ca1e83efb4488f9751c0e54c69398f3c"
+  },
+  {
+    "path": "Sources/AfterglowModelSupport/Gemma4Calibration.swift",
+    "origin": "wick/Sources/WickModelSupport/Gemma4Calibration.swift",
+    "sha256": "c94ec20eb6162bf9df3e9bc9ecd3aa6d546c043ae0c530be4ab4184779d03623",
+    "current_sha256": "06cb3b71759eecbce6dc35ed4cbbbb3404e47cfea95ec72944d6ea5d3ae82817"
+  },
+  {
+    "path": "Sources/AfterglowModelSupport/LagunaModel.swift",
+    "origin": "wick/Sources/WickModelSupport/LagunaModel.swift",
+    "sha256": "15a7c0c994699cd7f598ca82b0d7131b3358914e704a2486b6459e363a196985",
+    "current_sha256": "4b2e7af7cb0db012acd3331cd58ce3ce2f37212a9c0e7125c5e6629d32c81b85"
+  },
+  {
+    "path": "Sources/AfterglowModelSupport/Gemma3TiedHeadConversionModel.swift",
+    "origin": "wick/Sources/WickModelSupport/Gemma3TiedHeadConversionModel.swift",
+    "sha256": "7647c581c832db7c0c97f34a20a2c7910a63189b593b4ed44539cfdfe655caca",
+    "current_sha256": "eabeee3ef60335ebddbf2894c65a8c8ac7ddc7d18b977a0e0893db7aa39aaaa5"
+  },
+  {
+    "path": "Sources/AfterglowModelSupport/Gemma4ActivationCollector.swift",
+    "origin": "wick/Sources/WickModelSupport/Gemma4ActivationCollector.swift",
+    "sha256": "577b1c3e04f560fcb744141a42ee0f47ccc11055e845513450e95d5108eb850a",
+    "current_sha256": "ea9f5682c81773f7d1d9004a55f17372c42e54d51c467243821c1c64f76b9da5"
+  },
+  {
+    "path": "Sources/AfterglowModelSupport/TalkieModel.swift",
+    "origin": "wick/Sources/WickModelSupport/TalkieModel.swift",
+    "sha256": "4299e8894948d7e1895dda8de816e345a4b89f6b307282b3d3e392a107614c3b",
+    "current_sha256": "0074564eef30d36b754e80b02d70d2ef468659813469262927331102318806d9"
+  },
+  {
+    "path": "Sources/LagunaScaleSearchRescorer/LagunaScaleSearchRescorer.swift",
+    "origin": "wick/Sources/LagunaScaleSearchRescorer/LagunaScaleSearchRescorer.swift",
+    "sha256": "db0c5aa824cc524d5a57095edb0b0d53740843152b2691966a4ee7a527f86c2a",
+    "current_sha256": "442a82114f73fe40b228447e68a580d0226f5afb91e1e86d01d4e1f34b7625de"
+  },
+  {
+    "path": "Sources/LagunaScaleSearchRescorer/LagunaActivationStatistics.swift",
+    "origin": "wick/Sources/LagunaScaleSearchRescorer/LagunaActivationStatistics.swift",
+    "sha256": "1d368313de5bebc85bee7a6b8aefd0439fa1e1e983f852bc57555d065eff9a10",
+    "current_sha256": "237de9ede15b9c0a331ad76c07baddb95e22c05257c4e06febb1a4a5fe46589a"
+  },
+  {
+    "path": "Sources/LagunaScaleSearchRescorer/LagunaGroupSizePolicy.swift",
+    "origin": "wick/Sources/LagunaScaleSearchRescorer/LagunaGroupSizePolicy.swift",
+    "sha256": "7e0c82942daaf24cf605fb3b97195a37a1aa8c713fa33166f39e06ebe4648b6c",
+    "current_sha256": "c176bc63ea81f8473f70b2ef1c1d7d8946949654469eaa621814ee094605cc2c"
+  },
+  {
+    "path": "Sources/QuantizerSupport/GemmaGroupSizePolicy.swift",
+    "origin": "wick/Sources/QuantizerSupport/GemmaGroupSizePolicy.swift",
+    "sha256": "9cd455d2e0c3f294be722e763468d751a543e617d6afb2b3ce0633a3ec0f64f1",
+    "current_sha256": "c4cc83923b5f9ca47c3a57f0efead36c157af1cc83d055d17b24d522be4ff7b1"
+  },
+  {
+    "path": "Sources/QuantizerSupport/QuantizerOutput.swift",
+    "origin": "wick/Sources/QuantizerSupport/QuantizerOutput.swift",
+    "sha256": "cffdc166ab538d03ed381cd78a3f6326560955daa7e77bffb54215c829ba7e8b",
+    "current_sha256": "0436604ea15e5512f4f8c9a9681b67e8590c9026599eae6147a2aa8fc3c7a99a"
+  },
+  {
+    "path": "Sources/MistralActivationScaleSearchCore/GemmaActivationWeightedScaleSearch.swift",
+    "origin": "wick/Sources/MistralActivationScaleSearchCore/GemmaActivationWeightedScaleSearch.swift",
+    "sha256": "f4854b89c8399a6d2f5d772c575e9303e8b7427f3c386659f2305d4e867885da",
+    "current_sha256": "8b8c0ff095a0049680d6c949763c25371d45b489191a35ba7c08319cfed6abec"
+  },
+  {
+    "path": "Sources/MistralActivationScaleSearchCore/IndexedSafetensorsFingerprint.swift",
+    "origin": "wick/Sources/MistralActivationScaleSearchCore/IndexedSafetensorsFingerprint.swift",
+    "sha256": "73cd52f7022eda7c53cacf1bada77a36bf291204320be78ba2527ab2d048433a",
+    "current_sha256": "8c6d0748af2470ad1c4ed17905ad1365098d7c329d6e3a407ef018ddd333f5e0"
+  },
+  {
+    "path": "Sources/MistralActivationScaleSearchCore/ActivationWeightedScaleSearch.swift",
+    "origin": "wick/Sources/MistralActivationScaleSearchCore/ActivationWeightedScaleSearch.swift",
+    "sha256": "66a11bcfbcfca59a3e325078c41007be67158b9dd9d251d6dfa3facbbbe593ba",
+    "current_sha256": "1f2ae355a78733f8c06d437c789ac638bfca8e1e49711fb3643b21c6137bc64b"
+  },
+  {
+    "path": "Sources/MistralActivationScaleSearchCore/GemmaActivationStatistics.swift",
+    "origin": "wick/Sources/MistralActivationScaleSearchCore/GemmaActivationStatistics.swift",
+    "sha256": "1b3d225780ca129856ebc7e02a755482ef54d3e2cd06bc4cb2e448ead4ea3e02",
+    "current_sha256": "096fd7560c324e1cbe5a90fd956fd7ab646de470cb914c625463c1557ce28467"
+  },
+  {
+    "path": "Sources/MistralActivationScaleSearchCore/ExpertActivationWeightedScaleSearch.swift",
+    "origin": "wick/Sources/MistralActivationScaleSearchCore/ExpertActivationWeightedScaleSearch.swift",
+    "sha256": "a51b4edb42687453708d811c95b9059b451b5c66927233fa2756d1727c469d67",
+    "current_sha256": "709f794a1ef2555118e15acb6eb690baf4c4c3b567a832d2f97cef20feabf064"
+  },
+  {
+    "path": "Tests/MistralActivationScaleSearchCoreTests/MistralActivationScaleSearchCoreTests.swift",
+    "origin": "wick/Tests/MistralActivationScaleSearchCoreTests/MistralActivationScaleSearchCoreTests.swift",
+    "sha256": "9ab2fcb45ee7a9140ba4750827d41bdedcc6f86a64640d3a1a865dc082d5700a",
+    "current_sha256": "71c55f080e045f29b9e6ea90b5774b0a97c74e171be1230157775a12e2573539"
+  },
+  {
+    "path": "Tests/MistralActivationScaleSearchCoreTests/ExpertActivationWeightedScaleSearchTests.swift",
+    "origin": "wick/Tests/MistralActivationScaleSearchCoreTests/ExpertActivationWeightedScaleSearchTests.swift",
+    "sha256": "d6b8fcebd9ffd46591cb79f44a3857feddf8fba1f524a31a2ba6527e55941d30",
+    "current_sha256": "538301f783b8ef704f8121d7c8bb20bb20c8bb8396afb983a3a2fb63404f3636"
+  },
+  {
+    "path": "Tests/MistralActivationScaleSearchCoreTests/GemmaActivationStatisticsTests.swift",
+    "origin": "wick/Tests/MistralActivationScaleSearchCoreTests/GemmaActivationStatisticsTests.swift",
+    "sha256": "60410536dbad6830c9e01e25dba8a008ab355b91265e817c4c9f3ad026482efd",
+    "current_sha256": "60410536dbad6830c9e01e25dba8a008ab355b91265e817c4c9f3ad026482efd"
+  },
+  {
+    "path": "Tests/MistralActivationScaleSearchCoreTests/IndexedSafetensorsFingerprintTests.swift",
+    "origin": "wick/Tests/MistralActivationScaleSearchCoreTests/IndexedSafetensorsFingerprintTests.swift",
+    "sha256": "b35b420f3344f8766cfc836a926eba857bb5430bdda410ba0f79bb883a6c0d5e",
+    "current_sha256": "8d3ec0c076d44d5c56c9289c3a4f2baacfd4ff99d6ecfc08d3d8e7d546e63d5e"
+  },
+  {
+    "path": "Tests/ModelQuantizerTests/DFlashFormatTests.swift",
+    "origin": "wick/Tests/ModelQuantizerTests/DFlashFormatTests.swift",
+    "sha256": "2229cd1dc049b13be4ae5dbbdde5df8a28e67acf3b657ea24696f806991329fd",
+    "current_sha256": "0adbaf53b775efdee964215ca5c6f9cbc01ae78bc9bf739f9f3537a26cdea7b3"
+  },
+  {
+    "path": "Tests/ModelQuantizerTests/QuantizationFormatsTests.swift",
+    "origin": "wick/Tests/ModelQuantizerTests/QuantizationFormatsTests.swift",
+    "sha256": "a322bbbaba7dfd4d372c91bb655094b09071d293f8d5051b99dad1c8a6bbec74",
+    "current_sha256": "e1ae322ac25e0a791fed95d8009286de2259a6d515204f0cc38e666a5c540e4e"
+  },
+  {
+    "path": "Tests/ModelQuantizerTests/DFlashScaleSearchConversionTests.swift",
+    "origin": "wick/Tests/ModelQuantizerTests/DFlashScaleSearchConversionTests.swift",
+    "sha256": "3ff3ac0d891aa4c8558ac042d815cae0665aab7c83b3211fcf8d55bf6fe5fb1e",
+    "current_sha256": "b16e16421af07a83d05c3252fc0447841ab24ee83e12b4e89c9f8caee15fe766"
+  },
+  {
+    "path": "Tests/ModelQuantizerTests/TalkieConversionTests.swift",
+    "origin": "wick/Tests/ModelQuantizerTests/TalkieConversionTests.swift",
+    "sha256": "e2221d7aa4993abe22ccf15d6f1f60c515ce0ebc9e2affdb8eaf1bf445dadcd4",
+    "current_sha256": "2a54332fe30716872888275174fe0f0c87a21e0296e000e2910d43e0f854ab69"
+  },
+  {
+    "path": "Tests/ModelQuantizerTests/GemmaPrecisionConversionTests.swift",
+    "origin": "wick/Tests/ModelQuantizerTests/GemmaPrecisionConversionTests.swift",
+    "sha256": "f5e130320e1a06bd41305e4b9e01c991eb92a960ed984af8981518879c55d6b2",
+    "current_sha256": "051025a37a475770a4d6697af69ad3523275346056b0b9ac7bdfdb51ed4f2cc0"
+  },
+  {
+    "path": "Tests/ModelQuantizerTests/MixtralScaleSearchConversionTests.swift",
+    "origin": "wick/Tests/ModelQuantizerTests/MixtralScaleSearchConversionTests.swift",
+    "sha256": "07ef914f683405531b6eab6e97d65c6a568cb6ff4e5e2b29a88039c3220cb74f",
+    "current_sha256": "410b416a543fe9737e8434aa452b35d453efd0c5bac70c2dcc88a6500be9db40"
+  },
+  {
+    "path": "Tests/ModelQuantizerTests/GemmaSelectiveGroupConversionTests.swift",
+    "origin": "wick/Tests/ModelQuantizerTests/GemmaSelectiveGroupConversionTests.swift",
+    "sha256": "d15ab0a41573ca30418095cbcbf91147e48bcfa93e57f6cfd21e6c114b493a8a",
+    "current_sha256": "fb151f90dbd7af25c7f7de0ad8c1f57a29a97683213125008e6b2c45b428c284"
+  },
+  {
+    "path": "Tests/ModelQuantizerTests/Gemma4ProjectionInputRecorderTests.swift",
+    "origin": "wick/Tests/ModelQuantizerTests/Gemma4ProjectionInputRecorderTests.swift",
+    "sha256": "02bfb157d526c57852b6984f15a0d02f55325ff5d014a87a7b3fb8a469d07cbf",
+    "current_sha256": "9ae11237b07a7d47abd9dbe9a4074ba7bc4b2da30f71903b2fe5c8bfc8fafc03"
+  },
+  {
+    "path": "Tests/ModelQuantizerTests/Q5ScaleSearchTests.swift",
+    "origin": "wick/Tests/ModelQuantizerTests/Q5ScaleSearchTests.swift",
+    "sha256": "c26b2928e6e344d6c972832015c4fdf6d965411e5e8b8a0e266a481ecb316b61",
+    "current_sha256": "c26b2928e6e344d6c972832015c4fdf6d965411e5e8b8a0e266a481ecb316b61"
+  },
+  {
+    "path": "Tests/ModelQuantizerTests/CustomQuantizationGeometryTests.swift",
+    "origin": "wick/Tests/ModelQuantizerTests/CustomQuantizationGeometryTests.swift",
+    "sha256": "a0c1e9ba23db5316f73aae13a6e40587e1afd21a254195bf5e87868f6966b63a",
+    "current_sha256": "f3b5ee3526a01f92984e7deec1f23017a157812fca8377601902134b9c64fea0"
+  },
+  {
+    "path": "Tests/ModelQuantizerTests/BoundedConversionTests.swift",
+    "origin": "wick/Tests/ModelQuantizerTests/BoundedConversionTests.swift",
+    "sha256": "04248d54c0ababb4d56c9b145ea3727e0690e36c90b570d935c5984290195c26",
+    "current_sha256": "548d27bdd65b3e35551d190bc0bf556b8823fba0f32ee80e98290b7e99eac02a"
+  },
+  {
+    "path": "Tests/ModelQuantizerTests/Gemma4CalibrationTests.swift",
+    "origin": "wick/Tests/ModelQuantizerTests/Gemma4CalibrationTests.swift",
+    "sha256": "8e2c6e1232fcdf6b9f7fdb92421ed2f64b74e9f584d0785345e599bc03068282",
+    "current_sha256": "94f8b348bbc63dac21e74f37adc4ade6e0ac54e40a588bc3389c0a7eabee816d"
+  },
+  {
+    "path": "Tests/ModelQuantizerTests/LagunaActivationRescoreTests.swift",
+    "origin": "wick/Tests/ModelQuantizerTests/LagunaActivationRescoreTests.swift",
+    "sha256": "126ec2298d6ab802ed20ef24c9bc44bf5ba6330d483966ab30ef4bb40b4fd7e1",
+    "current_sha256": "07d0fd61f7ebd4d1ba50ac1dd10181694bcea01e2becaadf344172983904e59a"
+  },
+  {
+    "path": "Tests/ModelQuantizerTests/LagunaGroupSizePolicyTests.swift",
+    "origin": "wick/Tests/ModelQuantizerTests/LagunaGroupSizePolicyTests.swift",
+    "sha256": "5b59b82c196f48b6a6e7f56d5b816e191c3569ac15aed1fafcec9e4a7b880a09",
+    "current_sha256": "60fedca1dab863f48125a5783b7a3bf8f219a22e4c4b813107a7b5cc4f2716f9"
+  },
+  {
+    "path": "Tests/QuantizerSupportTests/QuantizerOutputTests.swift",
+    "origin": "wick/Tests/QuantizerSupportTests/QuantizerOutputTests.swift",
+    "sha256": "091cf5a55d51ac41f16a45bdb32ad9a86a9747d05ac5f1596e635fa74143cd7c",
+    "current_sha256": "a538aab54f092693185e8e684fe2c506a4ec40cc20637cf5795ec7ce78c95711"
+  },
+  {
+    "path": "Tests/QuantizerSupportTests/GemmaGroupSizePolicyTests.swift",
+    "origin": "wick/Tests/QuantizerSupportTests/GemmaGroupSizePolicyTests.swift",
+    "sha256": "0faaa9e1a8598f00768bcd4a2b31825e78a7b92643773539aa233dbabbbd49c8",
+    "current_sha256": "0faaa9e1a8598f00768bcd4a2b31825e78a7b92643773539aa233dbabbbd49c8"
+  },
+  {
+    "path": "Tests/QuantizerSupportTests/GemmaPrecisionPolicyTests.swift",
+    "origin": "wick/Tests/QuantizerSupportTests/GemmaPrecisionPolicyTests.swift",
+    "sha256": "2af21278087761053bac7ad50b860262b3bd45482bd864833ac38a34633719a7",
+    "current_sha256": "2af21278087761053bac7ad50b860262b3bd45482bd864833ac38a34633719a7"
+  },
+  {
+    "path": "Tests/Fixtures/TalkieTiny/config.json",
+    "origin": "wick/Tests/Fixtures/TalkieTiny/config.json",
+    "sha256": "fd622af6cb7ef462179799611f7bcba2bdb438c8993cdbfef7ad8ad224026d52",
+    "current_sha256": "fd622af6cb7ef462179799611f7bcba2bdb438c8993cdbfef7ad8ad224026d52"
+  },
+  {
+    "path": "Tests/Fixtures/LagunaDFlashTiny/config.json",
+    "origin": "wick/Tests/Fixtures/LagunaDFlashTiny/config.json",
+    "sha256": "f1ddd34b5ac6ecaccb8bb047acfd8da4ac3af7ba223744f186c4118b785a4d3a",
+    "current_sha256": "f1ddd34b5ac6ecaccb8bb047acfd8da4ac3af7ba223744f186c4118b785a4d3a"
+  },
+  {
+    "path": "Sources/DecisionMLX/DecisionTrainer.swift",
+    "origin": "/Users/stephen/Documents/ChatGPT/training/Experiments/CyberDistill/Sources/CyberDistillMLX/NativeTrainer.swift",
+    "sha256": "e47c1160bbd3b636493f8396c249a7cccc7937c5a29b0f17cc297ad513e14542",
+    "adaptation": "FP32 Adam and immutable checkpoint patterns; candidate-logit objective is new",
+    "current_sha256": "4e5c8b62bab3ee5e1b1d695eee038b90faceb591a42551aea76706e1e111884b"
+  }
+]
