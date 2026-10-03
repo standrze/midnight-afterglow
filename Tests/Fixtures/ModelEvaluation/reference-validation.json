@@ -1,0 +1,86 @@
+[
+  {
+    "id": "code-stable-dedup",
+    "kind": "reference",
+    "exit_code": 0,
+    "expected_result": true,
+    "stderr": ""
+  },
+  {
+    "id": "code-stable-dedup",
+    "kind": "mutant",
+    "exit_code": 1,
+    "expected_result": true,
+    "stderr": "Traceback (most recent call last):\n  File \"/work/tests.py\", line 2, in <module>\n    assert solution.stable_unique([3,1,3,2,1]) == [3,1,2]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n"
+  },
+  {
+    "id": "code-intervals",
+    "kind": "reference",
+    "exit_code": 0,
+    "expected_result": true,
+    "stderr": ""
+  },
+  {
+    "id": "code-intervals",
+    "kind": "mutant",
+    "exit_code": 1,
+    "expected_result": true,
+    "stderr": "Traceback (most recent call last):\n  File \"/work/tests.py\", line 3, in <module>\n    assert solution.merge_intervals(a)==[(1,7),(9,10)]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n"
+  },
+  {
+    "id": "code-event-order",
+    "kind": "reference",
+    "exit_code": 0,
+    "expected_result": true,
+    "stderr": ""
+  },
+  {
+    "id": "code-event-order",
+    "kind": "mutant",
+    "exit_code": 1,
+    "expected_result": true,
+    "stderr": "Traceback (most recent call last):\n  File \"/work/tests.py\", line 3, in <module>\n    assert solution.latest([dict(key=\"a\",version=2,value=1),dict(key=\"a\",version=2,value=2)])=={\"a\":2}\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n"
+  },
+  {
+    "id": "cyber-owner-check",
+    "kind": "reference",
+    "exit_code": 0,
+    "expected_result": true,
+    "stderr": ""
+  },
+  {
+    "id": "cyber-owner-check",
+    "kind": "mutant",
+    "exit_code": 1,
+    "expected_result": true,
+    "stderr": "Traceback (most recent call last):\n  File \"/work/tests.py\", line 6, in <module>\n    assert solution.allowed({\"authenticated\":True},{}) is False\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n"
+  },
+  {
+    "id": "cyber-path-validation",
+    "kind": "reference",
+    "exit_code": 0,
+    "expected_result": true,
+    "stderr": ""
+  },
+  {
+    "id": "cyber-path-validation",
+    "kind": "mutant",
+    "exit_code": 1,
+    "expected_result": true,
+    "stderr": "Traceback (most recent call last):\n  File \"/work/tests.py\", line 3, in <module>\n    for p in [\"\",\"/etc/passwd\",\"a/../b\",\"./a\",\"a//b\",\"a/\",\"C:/x\",\"a\\\\b\",\"a\\0b\"]: assert solution.safe_member(p) is False, p\n                                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: ./a\n"
+  },
+  {
+    "id": "cyber-query-parameters",
+    "kind": "reference",
+    "exit_code": 0,
+    "expected_result": true,
+    "stderr": ""
+  },
+  {
+    "id": "cyber-query-parameters",
+    "kind": "mutant",
+    "exit_code": 1,
+    "expected_result": true,
+    "stderr": "Traceback (most recent call last):\n  File \"/work/tests.py\", line 4, in <module>\n    assert sql==\"SELECT id FROM users WHERE name = ?\"\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n"
+  }
+]

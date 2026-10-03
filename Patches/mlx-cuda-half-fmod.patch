@@ -1,0 +1,21 @@
+diff --git a/mlx/backend/cuda/device/binary_ops.cuh b/mlx/backend/cuda/device/binary_ops.cuh
+--- a/mlx/backend/cuda/device/binary_ops.cuh
++++ b/mlx/backend/cuda/device/binary_ops.cuh
+@@ -47,7 +47,16 @@ struct Remainder {
+     } else if constexpr (is_complex_v<T>) {
+       return x % y;
+     } else {
+-      T r = cuda::std::fmod(x, y);
++      T r;
++      if constexpr (cuda::std::is_same_v<T, __half>) {
++        r = __float2half(
++            cuda::std::fmod(__half2float(x), __half2float(y)));
++      } else if constexpr (cuda::std::is_same_v<T, __nv_bfloat16>) {
++        r = __float2bfloat16(
++            cuda::std::fmod(__bfloat162float(x), __bfloat162float(y)));
++      } else {
++        r = cuda::std::fmod(x, y);
++      }
+       if (r != 0 && (r < 0 != y < 0)) {
+         r = r + y;
+       }

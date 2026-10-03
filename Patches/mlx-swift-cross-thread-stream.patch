@@ -1,0 +1,163 @@
+diff --git a/Source/Cmlx/include/mlx-swift-stream.h b/Source/Cmlx/include/mlx-swift-stream.h
+new file mode 100644
+index 0000000..136c721
+--- /dev/null
++++ b/Source/Cmlx/include/mlx-swift-stream.h
+@@ -0,0 +1,41 @@
++/* Copyright © 2025 Apple Inc. */
++
++/*
++ * mlx-swift additions to the `Cmlx` module.
++ *
++ * These are C entry points for mlx C++ APIs that `mlx-c` does not (yet) bind.
++ * The implementation lives in `../mlx-swift-stream.cpp`.
++ */
++
++#ifndef MLX_SWIFT_STREAM_H
++#define MLX_SWIFT_STREAM_H
++
++#include "mlx/c/device.h"
++#include "mlx/c/stream.h"
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/**
++ * Make a new stream on `dev` that can be used from any thread.
++ *
++ * As of mlx v0.31.2 streams are thread affine: a stream's GPU command encoder
++ * is registered in a `thread_local` map, so evaluating on a stream from a
++ * thread other than the one that created it raises
++ * "There is no Stream(gpu, N) in current thread."
++ *
++ * mlx exposes `new_thread_unsafe_stream` for language bindings that do their
++ * own locking (mlx-swift serializes on `evalLock`) -- the stream may be passed
++ * between threads, but callers are responsible for ensuring there are no data
++ * races on it.
++ *
++ * The returned stream must be freed with `mlx_stream_free`.
++ */
++mlx_stream mlx_swift_new_thread_unsafe_stream(mlx_device dev);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif
+diff --git a/Source/Cmlx/include/mlx.h b/Source/Cmlx/include/mlx.h
+index 76eaec3..6c242fc 100644
+--- a/Source/Cmlx/include/mlx.h
++++ b/Source/Cmlx/include/mlx.h
+@@ -2,3 +2,6 @@
+ #include "mlx/c/transforms_impl.h"
+ #include "mlx/c/linalg.h"
+ #include "mlx/c/fast.h"
++
++// mlx-swift additions -- see mlx-swift-stream.h
++#include "mlx-swift-stream.h"
+diff --git a/Source/Cmlx/mlx-swift-stream.cpp b/Source/Cmlx/mlx-swift-stream.cpp
+new file mode 100644
+index 0000000..784db57
+--- /dev/null
++++ b/Source/Cmlx/mlx-swift-stream.cpp
+@@ -0,0 +1,20 @@
++// Copyright © 2025 Apple Inc.
++
++// C entry points for mlx C++ APIs that `mlx-c` does not bind.
++// See include/mlx-swift-stream.h.
++
++#include "mlx/c/error.h"
++#include "mlx/c/private/device.h"
++#include "mlx/c/private/stream.h"
++
++#include "mlx-swift-stream.h"
++
++extern "C" mlx_stream mlx_swift_new_thread_unsafe_stream(mlx_device dev) {
++  try {
++    return mlx_stream_new_(
++        mlx::core::new_thread_unsafe_stream(mlx_device_get_(dev)));
++  } catch (std::exception& e) {
++    mlx_error(e.what());
++  }
++  return mlx_stream_new_();
++}
+diff --git a/Source/MLX/Stream.swift b/Source/MLX/Stream.swift
+index 6f2d2aa..9a3d1fc 100644
+--- a/Source/MLX/Stream.swift
++++ b/Source/MLX/Stream.swift
+@@ -83,8 +83,38 @@ public final class Stream: @unchecked Sendable, Equatable {
+ 
+     let ctx: mlx_stream
+ 
+-    public static let gpu = Stream(mlx_default_gpu_stream_new())
+-    public static let cpu = Stream(mlx_default_cpu_stream_new())
++    /// Make a stream on `device` that can be used from any thread.
++    ///
++    /// As of mlx v0.31.2 streams are thread affine: a stream's GPU command encoder is
++    /// registered in a `thread_local` map, so evaluating on a stream from a thread other
++    /// than the one that created it raises "There is no Stream(gpu, N) in current thread."
++    /// mlx-swift hands `Stream` values around freely -- they back ``StreamOrDevice/default``
++    /// and are captured by `Task`s -- so it uses mlx's `new_thread_unsafe_stream`, which
++    /// registers the encoder globally instead.
++    ///
++    /// mlx applies no synchronization to these streams; the caller must. mlx-swift
++    /// serializes all evaluation on `evalLock`, which is that condition.
++    static func newThreadUnsafeStream(_ device: Device) -> mlx_stream {
++        evalLock.withLock {
++            mlx_swift_new_thread_unsafe_stream(device.ctx)
++        }
++    }
++
++    /// As above, but from a raw device type.
++    ///
++    /// ``gpu`` and ``cpu`` cannot go through ``Device`` here: `Device.init` resolves its
++    /// own `defaultStream` to one of these, so constructing a `Device` from their
++    /// initializers would be circular.
++    private static func newThreadUnsafeStream(_ deviceType: mlx_device_type) -> mlx_stream {
++        let device = mlx_device_new_type(deviceType, 0)
++        defer { mlx_device_free(device) }
++        return evalLock.withLock {
++            mlx_swift_new_thread_unsafe_stream(device)
++        }
++    }
++
++    public static let gpu = Stream(newThreadUnsafeStream(MLX_GPU))
++    public static let cpu = Stream(newThreadUnsafeStream(MLX_CPU))
+ 
+     @TaskLocal static var defaultStream: Stream?
+ 
+@@ -109,6 +139,10 @@ public final class Stream: @unchecked Sendable, Equatable {
+     }
+ 
+     /// Default stream on the default device.
++    ///
++    /// > This is the calling thread's default stream and, unlike the streams mlx-swift
++    /// > creates, it cannot be used from another thread. Prefer ``StreamOrDevice/default``
++    /// > or ``defaultStream(_:)``.
+     public init() {
+         let device = Device.defaultDevice()
+         var ctx = mlx_stream_new()
+@@ -118,18 +152,16 @@ public final class Stream: @unchecked Sendable, Equatable {
+ 
+     @available(*, deprecated, message: "use init(Device) -- index not supported")
+     public init(index: Int32, _ device: Device) {
+-        self.ctx = evalLock.withLock {
+-            mlx_stream_new_device(device.ctx)
+-        }
++        self.ctx = Stream.newThreadUnsafeStream(device)
+     }
+ 
+     /// New stream on the given device.
+     ///
++    /// The stream may be used from any thread -- see ``newThreadUnsafeStream(_:)``.
++    ///
+     /// See also ``withNewDefaultStream(device:_:)-5bwc3``
+     public init(_ device: Device) {
+-        self.ctx = evalLock.withLock {
+-            mlx_stream_new_device(device.ctx)
+-        }
++        self.ctx = Stream.newThreadUnsafeStream(device)
+     }
+ 
+     deinit {

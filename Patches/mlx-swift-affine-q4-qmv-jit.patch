@@ -1,0 +1,114 @@
+diff --git a/Source/Cmlx/mlx-generated/metal/quantized.h b/Source/Cmlx/mlx-generated/metal/quantized.h
+index 42855e1..84ee28e 100644
+--- a/Source/Cmlx/mlx-generated/metal/quantized.h
++++ b/Source/Cmlx/mlx-generated/metal/quantized.h
+@@ -754,7 +754,11 @@ METAL_FUNC void qmv_quad_impl(
+   }
+ }
+ 
+-template <typename T, int group_size, int bits>
++template <
++    typename T,
++    int group_size,
++    int bits,
++    int results_per_simdgroup = 4>
+ METAL_FUNC void qmv_fast_impl(
+     const device uint32_t* w,
+     const device T* scales,
+@@ -768,7 +772,6 @@ METAL_FUNC void qmv_fast_impl(
+     uint simd_lid [[thread_index_in_simdgroup]]) {
+   constexpr int packs_per_thread = bits == 2 ? 1 : 2;
+   constexpr int num_simdgroups = 2;
+-  constexpr int results_per_simdgroup = 4;
+   constexpr int pack_factor = get_pack_factor<bits, 32>();
+   constexpr int bytes_per_pack = get_bytes_per_pack<bits, 32>();
+   constexpr int values_per_thread = pack_factor * packs_per_thread;
+@@ -1643,7 +1646,7 @@ template <
+         b_strides,
+         tid);
+   }
+-  qmv_fast_impl<T, group_size, bits>(
++  qmv_fast_impl<T, group_size, bits, results_per_simdgroup>(
+       w,
+       scales,
+       biases,
+@@ -2084,7 +2087,12 @@ template <
+       w, scales, biases, x, y, Xs, Ws, K, N, M, tid, lid, simd_gid, simd_lid);
+ }
+ 
+-template <typename T, int group_size, int bits, bool has_global_scale = false>
++template <
++    typename T,
++    int group_size,
++    int bits,
++    bool has_global_scale = false,
++    int results_per_simdgroup = 4>
+ [[kernel]] void affine_gather_qmv_fast(
+     const device uint32_t* w [[buffer(0)]],
+     const device T* scales [[buffer(1)]],
+@@ -2133,7 +2141,7 @@ template <typename T, int group_size, int bits, bool has_global_scale = false>
+       s_strides,
+       b_strides,
+       tid);
+-  qmv_fast_impl<T, group_size, bits>(
++  qmv_fast_impl<T, group_size, bits, results_per_simdgroup>(
+       w,
+       scales,
+       biases,
+diff --git a/Source/Cmlx/mlx-generated/quantized.cpp b/Source/Cmlx/mlx-generated/quantized.cpp
+index 583bba8..1ecd05f 100644
+--- a/Source/Cmlx/mlx-generated/quantized.cpp
++++ b/Source/Cmlx/mlx-generated/quantized.cpp
+@@ -767,7 +767,11 @@ METAL_FUNC void qmv_quad_impl(
+   }
+ }
+ 
+-template <typename T, int group_size, int bits>
++template <
++    typename T,
++    int group_size,
++    int bits,
++    int results_per_simdgroup = 4>
+ METAL_FUNC void qmv_fast_impl(
+     const device uint32_t* w,
+     const device T* scales,
+@@ -781,7 +785,6 @@ METAL_FUNC void qmv_fast_impl(
+     uint simd_lid [[thread_index_in_simdgroup]]) {
+   constexpr int packs_per_thread = bits == 2 ? 1 : 2;
+   constexpr int num_simdgroups = 2;
+-  constexpr int results_per_simdgroup = 4;
+   constexpr int pack_factor = get_pack_factor<bits, 32>();
+   constexpr int bytes_per_pack = get_bytes_per_pack<bits, 32>();
+   constexpr int values_per_thread = pack_factor * packs_per_thread;
+@@ -1656,7 +1659,7 @@ template <
+         b_strides,
+         tid);
+   }
+-  qmv_fast_impl<T, group_size, bits>(
++  qmv_fast_impl<T, group_size, bits, results_per_simdgroup>(
+       w,
+       scales,
+       biases,
+@@ -2097,7 +2100,12 @@ template <
+       w, scales, biases, x, y, Xs, Ws, K, N, M, tid, lid, simd_gid, simd_lid);
+ }
+ 
+-template <typename T, int group_size, int bits, bool has_global_scale = false>
++template <
++    typename T,
++    int group_size,
++    int bits,
++    bool has_global_scale = false,
++    int results_per_simdgroup = 4>
+ [[kernel]] void affine_gather_qmv_fast(
+     const device uint32_t* w [[buffer(0)]],
+     const device T* scales [[buffer(1)]],
+@@ -2146,7 +2154,7 @@ template <typename T, int group_size, int bits, bool has_global_scale = false>
+       s_strides,
+       b_strides,
+       tid);
+-  qmv_fast_impl<T, group_size, bits>(
++  qmv_fast_impl<T, group_size, bits, results_per_simdgroup>(
+       w,
+       scales,
+       biases,

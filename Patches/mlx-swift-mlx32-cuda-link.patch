@@ -1,0 +1,30 @@
+diff --git a/Package.swift b/Package.swift
+index c1edc02..406d981 100644
+--- a/Package.swift
++++ b/Package.swift
+@@ -136,5 +136,6 @@ let linkerSettings: [LinkerSetting]
+             .linkedLibrary("cublas"),
+             .linkedLibrary("cublasLt"),
++            .linkedLibrary("cufft"),
+             .linkedLibrary("nvrtc"),
+             .linkedLibrary("cudart"),
+             .linkedLibrary("cuda"),
+diff --git a/Source/Cmlx/mlx/mlx/device.cpp b/Source/Cmlx/mlx/mlx/device.cpp
+index 460c03b..7938ec7 100644
+--- a/Source/Cmlx/mlx/mlx/device.cpp
++++ b/Source/Cmlx/mlx/mlx/device.cpp
+@@ -8,6 +8,14 @@
+ 
+ namespace mlx::core {
+ 
++// encuda compiles generated CUDA translation units separately from Cmlx.
++// Clang lowers Device's defaulted equality comparison in those units to this
++// namespace-level symbol, while the regular C++ build emits no definition.
++// Keep the bridge local to the MLX 0.32 Swift CUDA integration.
++bool operator==(const Device& lhs, const Device& rhs) {
++  return lhs.type == rhs.type && lhs.index == rhs.index;
++}
++
+ Device& mutable_default_device() {
+   static Device default_device{gpu::is_available() ? Device::gpu : Device::cpu};
+   return default_device;

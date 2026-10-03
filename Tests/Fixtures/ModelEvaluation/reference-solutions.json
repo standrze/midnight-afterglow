@@ -1,0 +1,8 @@
+{
+  "code-stable-dedup": "def stable_unique(values):\n result=[]\n for value in values:\n  if value not in result: result.append(value)\n return result\n",
+  "code-intervals": "def merge_intervals(intervals):\n result=[]\n for lo,hi in sorted(intervals):\n  if hi<=lo: raise ValueError()\n  if result and lo<=result[-1][1]: result[-1]=(result[-1][0],max(hi,result[-1][1]))\n  else: result.append((lo,hi))\n return result\n",
+  "code-event-order": "def latest(events):\n best={}\n for event in events:\n  key=event['key']\n  if key not in best or event['version']>=best[key]['version']: best[key]=event\n return {key:event['value'] for key,event in best.items()}\n",
+  "cyber-owner-check": "def allowed(user, resource):\n if user is None or user.get('authenticated') is not True: return False\n return user.get('is_admin') is True or ('id' in user and 'owner_id' in resource and user['id']==resource['owner_id'])\n",
+  "cyber-path-validation": "def safe_member(name):\n return bool(name) and not any(c in name for c in ['\\\\','\\0',':']) and all(c not in ['', '.', '..'] for c in name.split('/'))\n",
+  "cyber-query-parameters": "def user_query(name):\n return 'SELECT id FROM users WHERE name = ?', (name,)\n"
+}

@@ -1,0 +1,60 @@
+{
+  "scope": "Additional Gemma covariance research components imported from preserved Wick sources; active future work owned by Afterglow.",
+  "files": [
+    {
+      "path": "Scripts/gemma_selected_projection.py",
+      "origin": "/Users/stephen/Documents/ChatGPT/wick/Scripts/gemma_selected_projection.py",
+      "origin_sha256": "43938088182c5c62ba0147c86c4d83ad3a31d851daab749cea6729f8693b8005",
+      "imported_sha256": "43938088182c5c62ba0147c86c4d83ad3a31d851daab749cea6729f8693b8005"
+    },
+    {
+      "path": "Scripts/gemma_checkpoint_patch.py",
+      "origin": "/Users/stephen/Documents/ChatGPT/wick/Scripts/gemma_checkpoint_patch.py",
+      "origin_sha256": "a179db1eda189087808ec4b9deaa13328dbde966f43a390236485ae49365af5b",
+      "imported_sha256": "a179db1eda189087808ec4b9deaa13328dbde966f43a390236485ae49365af5b"
+    },
+    {
+      "path": "Scripts/convert-gemma-selective-covariance.py",
+      "origin": "/Users/stephen/Documents/ChatGPT/wick/Scripts/convert-gemma-selective-covariance.py",
+      "origin_sha256": "187d5c35a219d93ab04edbb73f4665abdd012a07645a17c44d7dd585475937d2",
+      "imported_sha256": "187d5c35a219d93ab04edbb73f4665abdd012a07645a17c44d7dd585475937d2"
+    },
+    {
+      "path": "Scripts/probe-gemma-covariance.py",
+      "origin": "/Users/stephen/Documents/ChatGPT/wick/Scripts/probe-gemma-covariance.py",
+      "origin_sha256": "bac41cfe2ca890bbe025e177c711afed2677e6733b2f5ad548d9492350d4dea7",
+      "imported_sha256": "bac41cfe2ca890bbe025e177c711afed2677e6733b2f5ad548d9492350d4dea7"
+    },
+    {
+      "path": "Tests/Python/test_gemma_selected_projection.py",
+      "origin": "/Users/stephen/Documents/ChatGPT/wick/Tests/Python/test_gemma_selected_projection.py",
+      "origin_sha256": "f68d7d70c57cacba0c8e07f4ec2859061651c38a79bc68d4d4e01fa53755d3c7",
+      "imported_sha256": "f68d7d70c57cacba0c8e07f4ec2859061651c38a79bc68d4d4e01fa53755d3c7"
+    },
+    {
+      "path": "Tests/Python/test_gemma_checkpoint_patch.py",
+      "origin": "/Users/stephen/Documents/ChatGPT/wick/Tests/Python/test_gemma_checkpoint_patch.py",
+      "origin_sha256": "59faead6a18045f50ad84d9f674434d97991c890a86f485145e7a7e9c964504b",
+      "imported_sha256": "59faead6a18045f50ad84d9f674434d97991c890a86f485145e7a7e9c964504b"
+    },
+    {
+      "path": "Tests/Python/test_gemma_selective_converter.py",
+      "origin": "/Users/stephen/Documents/ChatGPT/wick/Tests/Python/test_gemma_selective_converter.py",
+      "origin_sha256": "42d19b0de4dfcc1451ed889c748a00d49f31c3fb79c4e7fc3e35c70f720f27b6",
+      "imported_sha256": "42d19b0de4dfcc1451ed889c748a00d49f31c3fb79c4e7fc3e35c70f720f27b6"
+    },
+    {
+      "path": "Tests/Python/test_gemma_projection_search.py",
+      "origin": "/Users/stephen/Documents/ChatGPT/wick/Tests/Python/test_gemma_projection_search.py",
+      "origin_sha256": "b41d9350d37dc6d39dae170b9178548d495dd24a41244aa8431f83b8d14454b2",
+      "imported_sha256": "b41d9350d37dc6d39dae170b9178548d495dd24a41244aa8431f83b8d14454b2"
+    }
+  ],
+  "afterglow_modifications": [
+    {
+      "path": "Scripts/convert-gemma-selective-covariance.py",
+      "current_sha256": "d8941c4b96d181fc62a081f7c0d99f23ab2b646360b32ab2876d85ffa7c16b67",
+      "change": "Record exact private staging ownership before copying, permitting safe cleanup after process interruption."
+    }
+  ]
+}

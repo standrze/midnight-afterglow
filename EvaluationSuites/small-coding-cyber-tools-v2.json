@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "name": "afterglow-small-coding-cyber-tools-v2",
+  "split": "development",
+  "cases": [
+    {
+      "id": "code-config-patch",
+      "category": "coding",
+      "sourceFamily": "configuration-patch-semantics",
+      "prompt": "Return only Python source (one python code fence is allowed). Implement patch_config(target, patch). Both inputs are dictionaries. Return a deep-copied patched dictionary without mutating either input. For each patch key: None removes the key if present; a dictionary recursively patches the existing dictionary value, or an empty dictionary if the existing value is not a dictionary; every other value replaces the old value with a deep copy. Empty dictionary patches preserve existing dictionary children. Lists are replaced, not merged.",
+      "tools": [],
+      "turns": [
+        {
+          "calls": [],
+          "pythonTests": "import solution, copy\nt={'db':{'host':'old','password':'secret'},'flags':[1,2],'gone':1}; p={'db':{'host':'new','password':None},'flags':[3],'gone':None}\nt0=copy.deepcopy(t);p0=copy.deepcopy(p)\nr=solution.patch_config(t,p)\nassert r=={'db':{'host':'new'},'flags':[3]}\nassert t==t0 and p==p0\nr['flags'].append(9); assert p==p0\nassert solution.patch_config({'x':5},{'x':{'enabled':True}})=={'x':{'enabled':True}}\nassert solution.patch_config({'x':{'a':1}},{'x':{}})=={'x':{'a':1}}\nassert solution.patch_config({}, {'absent':None})=={}\nassert solution.patch_config({'x':[{'a':1}]},{})=={'x':[{'a':1}]}\nr=solution.patch_config(t,{});r['db']['host']='changed';assert t==t0\nassert solution.patch_config({}, {'x':{'gone':None}})=={'x':{}}\nassert solution.patch_config({'x':7}, {'x':{'gone':None,'child':{'drop':None,'keep':2}}})=={'x':{'child':{'keep':2}}}\nassert solution.patch_config({}, {'x':{'child':{'drop':None}}})=={'x':{'child':{}}}\n"
+        }
+      ]
+    },
+    {
+      "id": "cyber-redirect-destination",
+      "category": "cybersecurity",
+      "sourceFamily": "redirect-authority-validation",
+      "prompt": "Return only Python source (one python code fence is allowed). Implement trusted_redirect(url) returning bool. Inputs are strings. Permit only URLs with scheme https (case-insensitive), host exactly api.internal (case-insensitive), no username or password, and either an omitted port or an explicit port of 443. An explicit :443 port is allowed; every other explicit port is rejected. Reject any literal whitespace, ASCII control character, DEL, or backslash anywhere before parsing. Reject malformed ports or malformed authorities. Do not permit subdomains, suffix matches, encoded hosts, or IP addresses. Paths, queries and fragments are allowed. Use Python standard library parsing; do not make network calls.",
+      "tools": [],
+      "turns": [
+        {
+          "calls": [],
+          "pythonTests": "import solution\nfor u in ['https://api.internal', 'HTTPS://API.INTERNAL/path?q=x#f', 'https://api.internal:443/a', 'https://api.internal/a%20b']:\n assert solution.trusted_redirect(u) is True,u\nfor u in ['http://api.internal', '//api.internal/a', 'https://api.internal.evil/a', 'https://evilapi.internal', 'https://api.internal@evil', 'https://user@api.internal', 'https://api.internal:444', 'https://api.internal:bad', 'https://api.internal:65536', 'https://api.internal./', 'https://%61pi.internal', 'https://127.0.0.1', 'https://api.internal\\\\evil', 'https://api.internal/a b', 'https://api.internal/\\tbad', 'https://api.internal/\\n', 'https://api.internal/\\x00', 'https://api.internal/\\x7f', 'https://[api.internal', 'https:///api.internal', 'https://:443', '']:\n assert solution.trusted_redirect(u) is False,repr(u)\n"
+        }
+      ]
+    },
+    {
+      "id": "cyber-scanner-argv",
+      "category": "cybersecurity",
+      "sourceFamily": "process-argument-boundaries",
+      "prompt": "Return only Python source (one python code fence is allowed). Implement scan_command(target) returning an argv list, never invoking a process. target must be a nonempty string without NUL, otherwise raise ValueError. Return exactly [\"scanner\", \"--format\", \"json\", \"--\", target]. Preserve target unchanged, including leading hyphens, spaces and shell metacharacters. The -- terminates option parsing; do not split, quote, normalize or interpolate target.",
+      "tools": [],
+      "turns": [
+        {
+          "calls": [],
+          "pythonTests": "import solution\nfor t in ['host.internal', '--output=/tmp/x', '$(touch /tmp/x)', 'a; echo injected', 'a b', 'a\\'\"b', 'a\\n b']:\n assert solution.scan_command(t)==['scanner','--format','json','--',t]\nfor t in ['', None, 7, [], 'a\\x00b']:\n try: solution.scan_command(t)\n except ValueError: pass\n else: raise AssertionError('invalid target accepted')\n"
+        }
+      ]
+    },
+    {
+      "id": "tool-nested-artifact-filter",
+      "category": "tools",
+      "sourceFamily": "nested-tool-schema",
+      "prompt": "Call collect_artifacts exactly once with scope \"staging\", filters {\"extensions\":[\"swift\",\"json\"],\"include_hidden\":false}, and limit 2. After the result return only the JSON object {\"paths\":<returned paths>}, without Markdown or extra text.",
+      "tools": [
+        {
+          "name": "collect_artifacts",
+          "description": "List artifacts using structured filters.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "scope": {
+                "type": "string",
+                "enum": [
+                  "staging",
+                  "production"
+                ]
+              },
+              "filters": {
+                "type": "object",
+                "properties": {
+                  "extensions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "include_hidden": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "extensions",
+                  "include_hidden"
+                ],
+                "additionalProperties": false
+              },
+              "limit": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "scope",
+              "filters",
+              "limit"
+            ],
+            "additionalProperties": false
+          }
+        }
+      ],
+      "turns": [
+        {
+          "calls": [
+            {
+              "name": "collect_artifacts",
+              "arguments": {
+                "scope": "staging",
+                "filters": {
+                  "extensions": [
+                    "swift",
+                    "json"
+                  ],
+                  "include_hidden": false
+                },
+                "limit": 2
+              },
+              "result": "{\"paths\": [\"Sources/Worker.swift\", \"config.json\"]}"
+            }
+          ]
+        },
+        {
+          "calls": [],
+          "answer": {
+            "paths": [
+              "Sources/Worker.swift",
+              "config.json"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

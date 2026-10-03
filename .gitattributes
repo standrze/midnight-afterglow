@@ -1,0 +1,2 @@
+# Unified-diff fixtures contain a leading context marker on blank lines.
+*.patch -whitespace

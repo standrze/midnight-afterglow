@@ -1,0 +1,8 @@
+{
+  "reference": "def allowed(user, resource):\n if user is None or user.get('authenticated') is not True: return False\n if user.get('is_admin') is True: return True\n if resource is None: return False\n uid=user.get('id'); owner=resource.get('owner_id')\n return uid is not None and owner is not None and uid==owner\n",
+  "mutants": {
+    "missing_optional_admin_denies": "def allowed(user, resource):\n if user is None or user.get('authenticated') is not True: return False\n if 'is_admin' not in user: return False\n if user.get('is_admin') is True: return True\n if resource is None: return False\n uid=user.get('id'); owner=resource.get('owner_id')\n return uid is not None and owner is not None and uid==owner\n",
+    "null_ids_match": "def allowed(user, resource):\n if user is None or user.get('authenticated') is not True: return False\n if user.get('is_admin') is True: return True\n if resource is None: return False\n uid=user.get('id'); owner=resource.get('owner_id')\n return uid==owner\n",
+    "truthy_authentication": "def allowed(user, resource):\n if user is None or not user.get('authenticated'): return False\n if user.get('is_admin') is True: return True\n if resource is None: return False\n uid=user.get('id'); owner=resource.get('owner_id')\n return uid is not None and owner is not None and uid==owner\n"
+  }
+}

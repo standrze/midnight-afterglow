@@ -1,0 +1,44 @@
+diff --git a/mlx/backend/gpu/eval.h b/mlx/backend/gpu/eval.h
+--- a/mlx/backend/gpu/eval.h
++++ b/mlx/backend/gpu/eval.h
+@@ -17,5 +17,6 @@ void eval(array& arr);
+ void finalize(Stream s);
+ void synchronize(Stream s);
+ void clear_streams();
++void clear_global_streams();
+ 
+ } // namespace mlx::core::gpu
+diff --git a/mlx/backend/cuda/eval.cpp b/mlx/backend/cuda/eval.cpp
+--- a/mlx/backend/cuda/eval.cpp
++++ b/mlx/backend/cuda/eval.cpp
+@@ -94,4 +94,8 @@ void clear_streams() {
+   }
+ }
+ 
++void clear_global_streams() {
++  cu::get_global_command_encoders().clear();
++}
++
+ } // namespace mlx::core::gpu
+diff --git a/mlx/backend/metal/eval.cpp b/mlx/backend/metal/eval.cpp
+--- a/mlx/backend/metal/eval.cpp
++++ b/mlx/backend/metal/eval.cpp
+@@ -88,4 +88,8 @@ void clear_streams() {
+   }
+ }
+ 
++void clear_global_streams() {
++  metal::get_global_command_encoders().clear();
++}
++
+ } // namespace mlx::core::gpu
+diff --git a/mlx/backend/no_gpu/eval.cpp b/mlx/backend/no_gpu/eval.cpp
+--- a/mlx/backend/no_gpu/eval.cpp
++++ b/mlx/backend/no_gpu/eval.cpp
+@@ -34,4 +34,6 @@ void synchronize(Stream) {
+ 
+ void clear_streams() {}
+ 
++void clear_global_streams() {}
++
+ } // namespace mlx::core::gpu

@@ -1,0 +1,100 @@
+diff --git c/Libraries/MLXLMCommon/ModelConversion.swift d/Libraries/MLXLMCommon/ModelConversion.swift
+index 8f3f129..bb904be 100644
+--- c/Libraries/MLXLMCommon/ModelConversion.swift
++++ d/Libraries/MLXLMCommon/ModelConversion.swift
+@@ -37,8 +37,8 @@ public enum ModelConversionQuantizationCalibration: Sendable, Equatable {
+     /// Search nearby affine Q4 scales while preserving MLX's ordinary packed layout.
+     ///
+     /// For every 64-value group, the search starts from MLX's standard affine scale and
+-    /// bias. It varies the integer distance from the anchored edge to zero by `-4 ... 4`,
+-    /// requantizes the group, and keeps a candidate only when its reconstruction MSE is
+-    /// strictly lower. Offset zero is the byte-compatible MLX baseline, so the search
++    /// bias. It searches nine nearby scale multipliers while preserving the baseline grid
++    /// center, requantizes the group, and keeps a candidate only when its reconstruction MSE is
++    /// strictly lower. Factor 1.0 is the byte-compatible MLX baseline, so the search
+     /// cannot make per-group reconstruction error worse.
+     ///
+@@ -680,7 +680,10 @@ private let q4ZeroGroupSize = 32
+ /// Geometry retained by the Q4R8 affine scale search.
+ private let q4AffineScaleSearchBits = 4
+ private let q4AffineScaleSearchGroupSize = 64
+-private let q4AffineScaleSearchOffsets = -4 ... 4
++private let q4AffineScaleSearchFactors: [Float] = [
++    0.75, 0.8125, 0.875, 0.9375, 1,
++    1.0625, 1.125, 1.1875, 1.25,
++]
+ 
+ /// Magnitude of the most-negative representable code. The grid spans `[-8, 7]`, so the scale
+ /// is `extremum / -8` and the affine bias that recentres it is `-8 * scale`.
+@@ -779,9 +782,10 @@ func q4ZeroQuantized(_ weight: MLXArray) -> (weight: MLXArray, scales: MLXArray,
+ /// Search nearby MLX affine-Q4 scales without changing the stored format.
+ ///
+ /// MLX anchors its affine grid at the larger-magnitude edge (`bias`) and chooses a signed
+-/// scale. `round(bias / scale)` is therefore the integer number of scale steps from that
+-/// edge to zero. Searching nearby integers changes the scale while retaining the same
+-/// anchored edge, packed 0...15 codes, scale dtype, affine bias, and decode kernel.
++/// scale. The search tries scale multipliers from 0.75 through 1.25 in 1/16 increments and
++/// adjusts the affine bias to retain the baseline grid center. This lets it test symmetric
++/// clipping or expansion while retaining packed 0...15 codes, metadata dtypes, and the
++/// ordinary decode kernel.
+ ///
+ /// The ordinary MLX result initializes every group. A candidate replaces it only on a
+ /// strict MSE improvement, which makes standard Q4 a per-group fallback and handles zero
+@@ -823,23 +827,25 @@ public func q4AffineScaleSearchQuantized(
+         MLX.square(grouped - baselineReconstruction), axis: -1, keepDims: true)
+     var bestWeight = baseline.wq.reshaped(groupCount, wordsPerGroup)
+     var bestScales = baselineScales
+-    MLX.eval(bestError, bestWeight, bestScales)
+-
+-    let baselineQ0 = MLX.round(biases / baselineScales)
+-    for offset in q4AffineScaleSearchOffsets where offset != 0 {
+-        let candidateQ0 = baselineQ0 + Float(offset)
+-        let validQ0 = candidateQ0 .< Float(0)
+-        let safeQ0 = MLX.where(validQ0, candidateQ0, MLXArray(Float(-1)))
++    var bestBiases = biases
++    MLX.eval(bestError, bestWeight, bestScales, bestBiases)
+ 
++    let baselineCenter = biases + baselineScales * Float(7.5)
++    for factor in q4AffineScaleSearchFactors where factor != 1 {
+         // Round-trip through the stored dtype before measuring error. This makes the
+         // search score the exact grid that safetensors and the runtime will consume.
+-        let candidateScale = (biases / safeQ0).asType(weight.dtype).asType(.float32)
+-        let valid = validQ0 .&& (MLX.abs(candidateScale) .> Float(0))
++        let candidateScale = (baselineScales * factor).asType(weight.dtype).asType(.float32)
++        let candidateBias =
++            (baselineCenter - candidateScale * Float(7.5))
++            .asType(weight.dtype)
++            .asType(.float32)
++        let valid = MLX.abs(candidateScale) .> Float(0)
+         let safeScale = MLX.where(valid, candidateScale, baselineScales)
++        let safeBias = MLX.where(valid, candidateBias, biases)
+         let candidateCodes = MLX.clip(
+-            MLX.round((grouped - biases) / safeScale), min: 0, max: 15
++            MLX.round((grouped - safeBias) / safeScale), min: 0, max: 15
+         ).asType(.uint32)
+-        let candidateReconstruction = candidateCodes.asType(.float32) * safeScale + biases
++        let candidateReconstruction = candidateCodes.asType(.float32) * safeScale + safeBias
+         let candidateError = MLX.mean(
+             MLX.square(grouped - candidateReconstruction), axis: -1, keepDims: true)
+         let improved = valid .&& (candidateError .< bestError)
+@@ -849,17 +855,18 @@ public func q4AffineScaleSearchQuantized(
+         let candidateWeight = MLX.sum(packedGroups << shifts, axis: -1).asType(.uint32)
+         bestWeight = MLX.where(improved, candidateWeight, bestWeight)
+         bestScales = MLX.where(improved, safeScale, bestScales)
++        bestBiases = MLX.where(improved, safeBias, bestBiases)
+         bestError = MLX.where(improved, candidateError, bestError)
+ 
+         // Conversion is offline. Materializing after each candidate bounds the lazy graph
+         // and transient memory for Laguna's very large stacked expert tensors.
+-        MLX.eval(bestError, bestWeight, bestScales)
++        MLX.eval(bestError, bestWeight, bestScales, bestBiases)
+     }
+ 
+     return (
+         bestWeight.reshaped(baseline.wq.shape),
+         bestScales.reshaped(baseline.scales.shape).asType(weight.dtype),
+-        baselineBiases
++        bestBiases.reshaped(baselineBiases.shape).asType(weight.dtype)
+     )
+ }
+ 

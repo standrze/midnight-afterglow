@@ -1,0 +1,26 @@
+diff --git a/Source/Cmlx/mlx-generated/metal/quantized_nax.h b/Source/Cmlx/mlx-generated/metal/quantized_nax.h
+--- a/Source/Cmlx/mlx-generated/metal/quantized_nax.h
++++ b/Source/Cmlx/mlx-generated/metal/quantized_nax.h
+@@ -1543,8 +1543,7 @@
+   const short tm = SM * (simd_group_id / WN);
+   const short tn = SN * (simd_group_id % WN);
+ 
+-  const short sgp_sm =
+-      align_M ? SM : min(SM, short(max(0, (M - (y_row + tm)))));
++  const short sgp_sm = align_M ? SM : min(int(SM), max(0, M - (y_row + tm)));
+   const short sgp_sn =
+       align_N ? SN : min(SN, short(max(0, (N - (y_col + tn)))));
+ 
+diff --git a/Source/Cmlx/mlx-generated/quantized_nax.cpp b/Source/Cmlx/mlx-generated/quantized_nax.cpp
+--- a/Source/Cmlx/mlx-generated/quantized_nax.cpp
++++ b/Source/Cmlx/mlx-generated/quantized_nax.cpp
+@@ -1556,8 +1556,7 @@
+   const short tm = SM * (simd_group_id / WN);
+   const short tn = SN * (simd_group_id % WN);
+ 
+-  const short sgp_sm =
+-      align_M ? SM : min(SM, short(max(0, (M - (y_row + tm)))));
++  const short sgp_sm = align_M ? SM : min(int(SM), max(0, M - (y_row + tm)));
+   const short sgp_sn =
+       align_N ? SN : min(SN, short(max(0, (N - (y_col + tn)))));
+ 

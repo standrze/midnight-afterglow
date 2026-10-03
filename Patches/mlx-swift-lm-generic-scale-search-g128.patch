@@ -1,0 +1,92 @@
+--- a/Libraries/MLXLMCommon/ModelConversion.swift
++++ b/Libraries/MLXLMCommon/ModelConversion.swift
+@@ -36,14 +36,14 @@
+ 
+     /// Search nearby affine Q4 scales while preserving MLX's ordinary packed layout.
+     ///
+-    /// For every 64-value group, the search starts from MLX's standard affine scale and
++    /// For every selected 64- or 128-value group, the search starts from MLX's standard affine scale and
+     /// bias. It searches nine nearby scale multipliers while preserving the baseline grid
+     /// center, requantizes the group, and keeps a candidate only when its reconstruction MSE is
+     /// strictly lower. Factor 1.0 is the byte-compatible MLX baseline, so the search
+     /// cannot make per-group reconstruction error worse.
+     ///
+     /// This is an experimental Q4R8-specific adaptation of the *idea* behind ScaleSearch,
+-    /// not the paper's NVFP4 E4M3/E2M1 algorithm. It requires 4 bits, group size 64, and
++    /// not the paper's NVFP4 E4M3/E2M1 algorithm. It requires 4 bits, group size 64 or 128, and
+     /// `QuantizationMode.affine`. Q8 overrides should continue using ``standard``.
+     /// Linear and SwitchLinear layers use the searched grid; embeddings use standard MLX
+     /// quantization because QuantizedEmbedding cannot accept precomputed affine arrays.
+@@ -720,8 +720,7 @@
+     case .q4AffineScaleSearch:
+         let compatible =
+             (quantization.bits ?? q4AffineScaleSearchBits) == q4AffineScaleSearchBits
+-            && (quantization.groupSize ?? q4AffineScaleSearchGroupSize)
+-                == q4AffineScaleSearchGroupSize
++            && [64, 128].contains(quantization.groupSize ?? q4AffineScaleSearchGroupSize)
+             && quantization.mode == .affine
+         if !compatible {
+             throw ModelConversionError.incompatibleCalibration(
+@@ -1056,11 +1055,13 @@
+         }
+ 
+         if quantization.calibration == .q4AffineScaleSearch {
+-            guard linear.weight.dim(-1) % q4AffineScaleSearchGroupSize == 0 else { return nil }
+-            let (weight, scales, biases) = q4AffineScaleSearchQuantized(linear.weight, rowBatchSize: rowBatchSize)
++            let groupSize = effectiveQuantization.groupSize
++            guard linear.weight.dim(-1) % groupSize == 0 else { return nil }
++            let (weight, scales, biases) = q4AffineScaleSearchQuantized(
++                linear.weight, groupSize: groupSize, rowBatchSize: rowBatchSize)
+             let resolved = EffectiveModelConversionQuantization(
+                 bits: q4AffineScaleSearchBits,
+-                groupSize: q4AffineScaleSearchGroupSize,
++                groupSize: groupSize,
+                 mode: .affine)
+             return (
+                 QuantizedLinear(
+@@ -1068,7 +1069,7 @@
+                     bias: linear.bias,
+                     scales: scales,
+                     biases: biases,
+-                    groupSize: q4AffineScaleSearchGroupSize,
++                    groupSize: groupSize,
+                     bits: q4AffineScaleSearchBits,
+                     mode: .affine),
+                 resolved
+@@ -1099,13 +1100,15 @@
+     if let switchLinear = layer as? SwitchLinear,
+         quantization.calibration == .q4AffineScaleSearch
+     {
+-        guard switchLinear.weight.dim(-1) % q4AffineScaleSearchGroupSize == 0 else {
++        let groupSize = effectiveQuantization.groupSize
++        guard switchLinear.weight.dim(-1) % groupSize == 0 else {
+             return nil
+         }
+-        let (weight, scales, biases) = q4AffineScaleSearchQuantized(switchLinear.weight, rowBatchSize: rowBatchSize)
++        let (weight, scales, biases) = q4AffineScaleSearchQuantized(
++            switchLinear.weight, groupSize: groupSize, rowBatchSize: rowBatchSize)
+         let resolved = EffectiveModelConversionQuantization(
+             bits: q4AffineScaleSearchBits,
+-            groupSize: q4AffineScaleSearchGroupSize,
++            groupSize: groupSize,
+             mode: .affine)
+         return (
+             QuantizedSwitchLinear(
+@@ -1113,7 +1116,7 @@
+                 weight: weight,
+                 scales: scales,
+                 biases: biases,
+-                groupSize: q4AffineScaleSearchGroupSize,
++                groupSize: groupSize,
+                 bits: q4AffineScaleSearchBits,
+                 mode: .affine),
+             resolved
+@@ -1177,7 +1180,7 @@
+     if quantization.calibration == .q4AffineScaleSearch {
+         return .init(
+             bits: q4AffineScaleSearchBits,
+-            groupSize: q4AffineScaleSearchGroupSize,
++            groupSize: quantization.groupSize ?? q4AffineScaleSearchGroupSize,
+             mode: .affine)
+     }
+     return .init(

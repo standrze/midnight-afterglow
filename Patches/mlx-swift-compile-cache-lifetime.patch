@@ -1,0 +1,123 @@
+diff --git a/Source/MLX/Transforms+Compile.swift b/Source/MLX/Transforms+Compile.swift
+--- a/Source/MLX/Transforms+Compile.swift
++++ b/Source/MLX/Transforms+Compile.swift
+@@ -38,70 +38,28 @@
+         self.id = UInt(bitPattern: Unmanaged.passUnretained(self).toOpaque())
+     }
+ 
+-    /// Remove the compiled structure from the back end.
+-    ///
+-    /// ### Why this takes `evalLock`
+-    ///
+-    /// `mlx_detail_compile_erase` is `compiler_cache().erase(fun_id)`, i.e.
+-    /// `std::unordered_map::erase` on the *same* process-global
+-    /// `mlx::core::detail::CompilerCache` that ``innerCall(_:)`` reads and
+-    /// inserts into via `CompilerCache::find` (`cache_[fun_id]`, which itself
+-    /// can insert and rehash, followed by `entries.push_back`).  That cache has
+-    /// no synchronization of its own, and `find` hands back a *reference* to an
+-    /// entry that the caller then fills in and reads from across the whole
+-    /// trace.  An unlocked erase can therefore rehash the map out from under a
+-    /// concurrent `find`, or destroy the very entry another thread is compiling
+-    /// into.
+-    ///
+-    /// Every other use of that cache happens under `evalLock`, so the erase has
+-    /// to as well; otherwise the lock does not actually make the cache
+-    /// single-threaded, it only makes most of it single-threaded.
+-    ///
+-    /// ### Why blocking here is safe
+-    ///
+-    /// `deinit` runs on whichever thread drops the last reference:
+-    ///
+-    /// - A thread that holds no MLX lock simply waits for the current eval or
+-    ///   compiled call to finish.  Bounded, since `evalLock` is only ever held
+-    ///   for the duration of one call.
+-    /// - A thread already inside a compiled call or an `eval` -- for instance a
+-    ///   traced body that drops the last reference to some other compiled
+-    ///   function -- already holds `evalLock`, and it is an `NSRecursiveLock`,
+-    ///   so re-entry is free.
+-    /// - A thread holding some other ``CompiledFunction``'s ``lock`` also holds
+-    ///   `evalLock` already (see ``call(_:)``), so that is the same case; no new
+-    ///   edge is added to the lock graph.
+-    ///
+-    /// Within this library the only releases of a ``CompiledFunction`` are the
+-    /// caller's own (the closure returned by ``compile(inputs:outputs:shapeless:_:)-([Updatable],[Updatable],Bool,([MLXArray])->[MLXArray])``
+-    /// holds the sole strong reference) and the `mlx_closure_free` of the
+-    /// closure built in ``innerCall(_:)``, which runs on the calling thread with
+-    /// `evalLock` already held.  Nothing hands a reference to a back-end worker
+-    /// thread, so the erase can never be the thing an `evalLock` holder is
+-    /// waiting for.
+-    ///
+-    /// The erase stays synchronous rather than being deferred to a queue on
+-    /// purpose: ``id`` is the object's own address, so once this object is
+-    /// freed a new ``CompiledFunction`` can be allocated at the same address and
+-    /// receive the same id.  A deferred erase could delete that new function's
+-    /// cache entries.
++    /// Remove this function's compiled structures from every tracing thread.
++    ///
++    /// MLX 0.32 compiler caches are thread-local. The final Swift reference can
++    /// be released on a different thread, so erasing only the destruction
++    /// thread's cache leaves constants (including model weights) in other caches.
++    /// The backend keeps weak cache registrations; destruction snapshots them
++    /// and erases this function ID without changing any unrelated function.
++    ///
++    /// Keep the erase synchronous under evalLock. The ID is this object's
++    /// address, and a deferred erase could delete a new function allocated at
++    /// the same address. The recursive lock also permits graph-owner teardown
++    /// to release another compiled function on the current thread.
+     deinit {
+         let functionID = id!
+         withEvalLock {
+             #if DEBUG
+-                // Trivially true two lines below the acquisition -- it is here to
+-                // catch a future change that moves the erase back out from under
+-                // the lock, the same way `withInstanceLock` guards `call(_:)`.
+                 EvalLockOwnership.requireHeldByCurrentThread(
+                     "the compiler cache was erased without holding evalLock; "
+                         + "see CompiledFunction.deinit")
+                 EvalLockOwnership.recordCompileErase()
+             #endif
+-            // remove the compiled structure from the back end
+-            var cache = mlx_compile_cache_new()
+-            mlx_detail_compile_cache(&cache)
+-            defer { mlx_compile_cache_free(cache) }
+-            mlx_detail_compile_erase(cache, functionID)
++            mlx_detail_compile_erase_all_threads(functionID)
+         }
+     }
+ 
+@@ -112,10 +70,9 @@
+     /// `evalLock` is acquired **outermost**, before the per-instance ``lock``.
+     /// That order is not a preference, it is forced:
+     ///
+-    /// - Tracing mutates process-global state that has no synchronization of its
+-    ///   own -- `mlx::core::detail::CompilerCache` is an unguarded singleton and
+-    ///   `detail::InTracing::trace_stack()` is a plain function-local `static`,
+-    ///   not `thread_local` -- so `evalLock` has to span the whole trace (#339).
++    /// - Tracing and evaluation use shared Swift/backend state, so evalLock
++    ///   continues to span the whole trace. MLX 0.32 has thread-local compiler
++    ///   caches; cache destruction is covered by that same lock above.
+     /// - The trace calls back into Swift, and the traced body routinely calls
+     ///   *other* compiled functions: every `MLXNN` activation is a file-scope
+     ///   `CompiledFunction`, so e.g. `silu` inside a traced body enters
+diff --git a/Source/Cmlx/include/mlx/c/compile.h b/Source/Cmlx/include/mlx/c/compile.h
+--- a/Source/Cmlx/include/mlx/c/compile.h
++++ b/Source/Cmlx/include/mlx/c/compile.h
+@@ -52,6 +52,7 @@
+ int mlx_detail_compile_cache(mlx_compile_cache* res);
+ int mlx_detail_compile_clear_cache(const mlx_compile_cache cache);
+ int mlx_detail_compile_erase(const mlx_compile_cache cache, uintptr_t fun_id);
++int mlx_detail_compile_erase_all_threads(uintptr_t fun_id);
+ int mlx_disable_compile(void);
+ int mlx_enable_compile(void);
+ int mlx_set_compile_mode(mlx_compile_mode mode);
+diff --git a/Source/Cmlx/include-framework/mlx-c-compile.h b/Source/Cmlx/include-framework/mlx-c-compile.h
+--- a/Source/Cmlx/include-framework/mlx-c-compile.h
++++ b/Source/Cmlx/include-framework/mlx-c-compile.h
+@@ -52,6 +52,7 @@
+ int mlx_detail_compile_cache(mlx_compile_cache* res);
+ int mlx_detail_compile_clear_cache(const mlx_compile_cache cache);
+ int mlx_detail_compile_erase(const mlx_compile_cache cache, uintptr_t fun_id);
++int mlx_detail_compile_erase_all_threads(uintptr_t fun_id);
+ int mlx_disable_compile(void);
+ int mlx_enable_compile(void);
+ int mlx_set_compile_mode(mlx_compile_mode mode);

@@ -1,0 +1,20 @@
+diff --git a/Libraries/MLXLMCommon/SwitchLayers.swift b/Libraries/MLXLMCommon/SwitchLayers.swift
+--- a/Libraries/MLXLMCommon/SwitchLayers.swift
++++ b/Libraries/MLXLMCommon/SwitchLayers.swift
+@@ -197,7 +197,15 @@
+         }
+ 
+         let gateUp = gateUpProj(x, idx, sortedIndices: doSort)
+-        let parts = MLX.split(gateUp, parts: 2, axis: -1)
++        #if os(macOS)
++            // Avoid the pinned MLX compiler's multi-output sibling cycle.
++            // Independent views keep gate/up layout and activation unchanged.
++            precondition(gateUp.dim(-1) % 2 == 0, "Gate/up projection must have equal halves")
++            let half = gateUp.dim(-1) / 2
++            let parts = [gateUp[.ellipsis, ..<half], gateUp[.ellipsis, half...]]
++        #else
++            let parts = MLX.split(gateUp, parts: 2, axis: -1)
++        #endif
+         let activated =
+             if let activationProduct {
+                 activationProduct(parts[0], parts[1])

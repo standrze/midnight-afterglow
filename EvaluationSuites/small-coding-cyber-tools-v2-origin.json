@@ -1,0 +1,17 @@
+{
+  "at": "2026-10-03T02:07:04.374830+00:00",
+  "previous_suite": "/Users/stephen/Documents/ChatGPT/afterglow/EvaluationSuites/small-coding-cyber-tools-v1.json",
+  "previous_sha256": "bd8bcd89fcad7370ba3b8a0a3f01780096f3f0e9d4c38db613b1053cb17478d6",
+  "suite": "/Users/stephen/Documents/ChatGPT/afterglow/EvaluationSuites/small-coding-cyber-tools-v2.json",
+  "sha256": "23a0d45345485b13f7c8490b540ee563ebc3af5979791df8045836859396a497",
+  "cases": 4,
+  "changes": [
+    "Cover recursive deletion in newly created dictionary children.",
+    "Clarify that explicit HTTPS port 443 is allowed; redirect oracle is unchanged."
+  ],
+  "source_families_unchanged": true,
+  "split": "development",
+  "independent_holdout": false,
+  "old_runs_relabelled": false,
+  "old_prompt_responses_are_not_v2_generation_evidence": true
+}

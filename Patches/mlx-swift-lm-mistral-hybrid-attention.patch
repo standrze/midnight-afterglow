@@ -1,0 +1,190 @@
+diff --git a/Libraries/MLXLLM/Models/Llama.swift b/Libraries/MLXLLM/Models/Llama.swift
+index 0993784c..54c007d3 100644
+--- a/Libraries/MLXLLM/Models/Llama.swift
++++ b/Libraries/MLXLLM/Models/Llama.swift
+@@ -99,7 +99,10 @@ class LlamaTransformerBlock: Module {
+     @ModuleInfo(key: "input_layernorm") var inputLayerNorm: RMSNorm
+     @ModuleInfo(key: "post_attention_layernorm") var postAttentionLayerNorm: RMSNorm
+ 
+-    init(_ args: LlamaConfiguration) {
++    let useSliding: Bool
++
++    init(_ args: LlamaConfiguration, useSliding: Bool = false) {
++        self.useSliding = useSliding
+         self._attention.wrappedValue = LlamaAttention(args)
+         self._mlp.wrappedValue = LlamaMLP(args)
+         self._inputLayerNorm.wrappedValue = RMSNorm(
+@@ -125,6 +128,9 @@ public class LlamaModelInner: Module {
+ 
+     let layers: [LlamaTransformerBlock]
+     let norm: RMSNorm
++    let slidingWindow: Int?
++    let fullAttentionIndex: Int?
++    let slidingAttentionIndex: Int?
+ 
+     init(_ args: LlamaConfiguration) {
+         precondition(args.vocabularySize > 0)
+@@ -132,16 +138,30 @@ public class LlamaModelInner: Module {
+         self._embedTokens.wrappedValue = Embedding(
+             embeddingCount: args.vocabularySize, dimensions: args.hiddenSize)
+ 
+-        self.layers = (0 ..< args.hiddenLayers).map { _ in LlamaTransformerBlock(args) }
++        self.layers = args.layerTypes.map {
++            LlamaTransformerBlock(args, useSliding: $0 == "sliding_attention")
++        }
+         self.norm = RMSNorm(dimensions: args.hiddenSize, eps: args.rmsNormEps)
++        self.slidingWindow = args.slidingWindow
++        self.fullAttentionIndex = layers.firstIndex { !$0.useSliding }
++        self.slidingAttentionIndex = layers.firstIndex { $0.useSliding }
+     }
+ 
+     func callAsFunction(_ inputs: MLXArray, cache: [KVCache]? = nil) -> MLXArray {
+         var h = embedTokens(inputs)
+ 
+-        let mask = createAttentionMask(h: h, cache: cache?.first)
++        let fullAttentionMask: MLXFast.ScaledDotProductAttentionMaskMode =
++            fullAttentionIndex.map {
++                createAttentionMask(h: h, cache: cache?[$0])
++            } ?? .none
++        let slidingAttentionMask: MLXFast.ScaledDotProductAttentionMaskMode =
++            slidingAttentionIndex.map {
++                createAttentionMask(
++                    h: h, cache: cache?[$0], windowSize: slidingWindow)
++            } ?? .none
+ 
+         for (i, layer) in layers.enumerated() {
++            let mask = layer.useSliding ? slidingAttentionMask : fullAttentionMask
+             h = layer(h, mask: mask, cache: cache?[i])
+         }
+ 
+@@ -189,6 +209,17 @@ public class LlamaModel: Module, LLMModel, KVCacheDimensionProvider {
+             tiedWordEmbeddings: configuration.tieWordEmbeddings)
+     }
+ 
++    /// Classic Mistral checkpoints may declare all-sliding or heterogeneous
++    /// full/sliding attention. Llama checkpoints retain full-attention caches.
++    public func newCache(parameters: GenerateParameters?) throws -> [KVCache] {
++        try configuration.layerTypes.map { layerType in
++            try makeHybridAttentionKVCache(
++                parameters: parameters,
++                slidingWindow: configuration.slidingWindow,
++                usesSlidingWindow: layerType == "sliding_attention")
++        }
++    }
++
+     public func messageGenerator(tokenizer: any Tokenizer) -> any MessageGenerator {
+         // some models allow the system role and some do not -- this is enforced
+         // by the chat template (code).
+@@ -230,13 +261,16 @@ public struct LlamaConfiguration: Codable, Sendable {
+     /// tool-call format must not be inferred for Mistral checkpoints (Mistral-Nemo
+     /// shares Llama 3's large vocabulary).
+     var modelType: String?
++    var layerTypes: [String]
++    var slidingWindow: Int?
+ 
+     public init(
+         hiddenSize: Int, hiddenLayers: Int, intermediateSize: Int, attentionHeads: Int,
+         headDimensions: Int? = nil, rmsNormEps: Float, vocabularySize: Int, kvHeads: Int,
+         maxPositionEmbeddings: Int? = nil, ropeTheta: Float = 10_000, ropeTraditional: Bool = false,
+         ropeScaling: [String: StringOrNumber]? = nil, tieWordEmbeddings: Bool = true,
+-        attentionBias: Bool = false, mlpBias: Bool = false, modelType: String? = nil
++        attentionBias: Bool = false, mlpBias: Bool = false, modelType: String? = nil,
++        layerTypes: [String]? = nil, slidingWindow: Int? = nil
+     ) {
+         self.hiddenSize = hiddenSize
+         self.hiddenLayers = hiddenLayers
+@@ -254,6 +288,25 @@ public struct LlamaConfiguration: Codable, Sendable {
+         self.attentionBias = attentionBias
+         self.mlpBias = mlpBias
+         self.modelType = modelType
++        self.slidingWindow = slidingWindow
++        let resolvedLayerTypes = Self.resolvedLayerTypes(
++            modelType: modelType,
++            hiddenLayers: hiddenLayers,
++            explicitLayerTypes: layerTypes,
++            slidingWindow: slidingWindow)
++        precondition(
++            resolvedLayerTypes.count == hiddenLayers,
++            "layer_types must contain one entry per hidden layer")
++        precondition(
++            resolvedLayerTypes.allSatisfy {
++                $0 == "full_attention" || $0 == "sliding_attention"
++            },
++            "layer_types entries must be full_attention or sliding_attention")
++        precondition(
++            !resolvedLayerTypes.contains("sliding_attention")
++                || (slidingWindow.map { $0 > 0 } ?? false),
++            "sliding_window must be positive when a layer uses sliding attention")
++        self.layerTypes = resolvedLayerTypes
+     }
+ 
+     var resolvedHeadDimensions: Int {
+@@ -277,6 +330,8 @@ public struct LlamaConfiguration: Codable, Sendable {
+         case attentionBias = "attention_bias"
+         case mlpBias = "mlp_bias"
+         case modelType = "model_type"
++        case layerTypes = "layer_types"
++        case slidingWindow = "sliding_window"
+     }
+ 
+     public init(from decoder: Swift.Decoder) throws {
+@@ -313,6 +368,35 @@ public struct LlamaConfiguration: Codable, Sendable {
+             self.mlpBias = mlpBias
+         }
+         modelType = try container.decodeIfPresent(String.self, forKey: .modelType)
++        slidingWindow = try container.decodeIfPresent(Int.self, forKey: .slidingWindow)
++        let explicitLayerTypes = try container.decodeIfPresent(
++            [String].self, forKey: .layerTypes)
++        layerTypes = Self.resolvedLayerTypes(
++            modelType: modelType,
++            hiddenLayers: hiddenLayers,
++            explicitLayerTypes: explicitLayerTypes,
++            slidingWindow: slidingWindow)
++
++        guard layerTypes.count == hiddenLayers else {
++            throw DecodingError.dataCorruptedError(
++                forKey: .layerTypes,
++                in: container,
++                debugDescription: "layer_types must contain one entry per hidden layer")
++        }
++        guard layerTypes.allSatisfy({ $0 == "full_attention" || $0 == "sliding_attention" }) else {
++            throw DecodingError.dataCorruptedError(
++                forKey: .layerTypes,
++                in: container,
++                debugDescription:
++                    "layer_types entries must be full_attention or sliding_attention")
++        }
++        if layerTypes.contains("sliding_attention"), !(slidingWindow.map { $0 > 0 } ?? false) {
++            throw DecodingError.dataCorruptedError(
++                forKey: .slidingWindow,
++                in: container,
++                debugDescription:
++                    "sliding_window must be positive when a layer uses sliding attention")
++        }
+ 
+         if let ropeScaling {
+             if ropeScaling["factor"] == nil {
+@@ -341,6 +425,23 @@ public struct LlamaConfiguration: Codable, Sendable {
+             }
+         }
+     }
++
++    private static func resolvedLayerTypes(
++        modelType: String?,
++        hiddenLayers: Int,
++        explicitLayerTypes: [String]?,
++        slidingWindow: Int?
++    ) -> [String] {
++        guard modelType == "mistral" else {
++            return Array(repeating: "full_attention", count: hiddenLayers)
++        }
++        if let explicitLayerTypes {
++            return explicitLayerTypes
++        }
++        return Array(
++            repeating: slidingWindow == nil ? "full_attention" : "sliding_attention",
++            count: hiddenLayers)
++    }
+ }
+ 
+ // MARK: - LoRA

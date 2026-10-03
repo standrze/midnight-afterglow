@@ -1,0 +1,19 @@
+.build/
+.swiftpm/
+.DS_Store
+Models/
+Runs/
+Exports/
+*.log
+
+# Training runs, exports, and model weights remain local.
+**/.build/
+**/.swiftpm/
+__pycache__/
+*.pyc
+/EvaluationRuns/
+/Benchmarks/*ActualInputs*/
+/Benchmarks/GemmaQuantization*/
+*.safetensors
+*.gguf
+*.agq4

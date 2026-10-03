@@ -1,0 +1,9 @@
+diff --git a/Source/Cmlx/CudaBuild.json b/Source/Cmlx/CudaBuild.json
+--- a/Source/Cmlx/CudaBuild.json
++++ b/Source/Cmlx/CudaBuild.json
+@@ -3,4 +3,5 @@
+         "mlx",
+         "mlx-c",
++        "mlx-generated/cuda",
+         "json/single_include/nlohmann",
+         "fmt/include"

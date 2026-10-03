@@ -1,0 +1,36 @@
+diff --git a/Libraries/MLXLMCommon/ModelConversion.swift b/Libraries/MLXLMCommon/ModelConversion.swift
+--- a/Libraries/MLXLMCommon/ModelConversion.swift
++++ b/Libraries/MLXLMCommon/ModelConversion.swift
+@@ -528,7 +528,10 @@
+         if fileManager.fileExists(atPath: destinationURL.path) {
+             try fileManager.removeItem(at: destinationURL)
+         }
+-        try fileManager.copyItem(at: sourceURL, to: destinationURL)
++        // HF snapshots contain relative links into the cache's blobs directory.
++        // Export the bytes, not those links, so the model is portable and writes
++        // to its configuration never modify the source cache.
++        try Data(contentsOf: sourceURL).write(to: destinationURL, options: .atomic)
+     }
+ }
+ 
+@@ -550,10 +553,8 @@
+     layerQuantization: [String: ModelConversionQuantizationDecision]
+ ) throws {
+     let configURL = outputDirectory.appendingPathComponent("config.json")
+-    guard FileManager.default.fileExists(atPath: configURL.path) else {
+-        return
+-    }
+ 
++    // A missing or dangling config is an export failure, never success.
+     let data = try Data(contentsOf: configURL)
+     var json = try JSONDecoder.json5().decode([String: JSONValue].self, from: data)
+ 
+@@ -584,7 +585,7 @@
+     let encoder = JSONEncoder()
+     encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+     let updatedData = try encoder.encode(json)
+-    try updatedData.write(to: configURL)
++    try updatedData.write(to: configURL, options: .atomic)
+ }
+ 
+ package func sourceConfigurationIsQuantized(_ data: Data) -> Bool {

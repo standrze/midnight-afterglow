@@ -1,0 +1,80 @@
+diff --git a/Libraries/MLXLMCommon/ModelConversion.swift b/Libraries/MLXLMCommon/ModelConversion.swift
+--- a/Libraries/MLXLMCommon/ModelConversion.swift
++++ b/Libraries/MLXLMCommon/ModelConversion.swift
+@@ -784,9 +784,10 @@ func q4ZeroQuantized(_ weight: MLXArray) -> (weight: MLXArray, scales: MLXArray,
+ ///
+ /// MLX anchors its affine grid at the larger-magnitude edge (`bias`) and chooses a signed
+ /// scale. The search tries scale multipliers from 0.75 through 1.25 in 1/16 increments and
+-/// adjusts the affine bias to retain the baseline grid center. This lets it test symmetric
+-/// clipping or expansion while retaining packed 0...15 codes, metadata dtypes, and the
+-/// ordinary decode kernel.
++/// initially adjusts the affine bias to retain the baseline grid center. For each scale it
++/// then performs one least-squares bias update from the assigned codes and keeps whichever
++/// affine grid is better. This tests clipping/expansion and a data-driven center correction
++/// while retaining packed 0...15 codes, metadata dtypes, and the ordinary decode kernel.
+ ///
+ /// The ordinary MLX result initializes every group. A candidate replaces it only on a
+ /// strict MSE improvement, which makes standard Q4 a per-group fallback and handles zero
+@@ -831,23 +833,45 @@ public func q4AffineScaleSearchQuantized(
+     MLX.eval(bestError, bestWeight, bestScales, bestBiases)
+ 
+     let baselineCenter = biases + baselineScales * Float(7.5)
+-    for factor in q4AffineScaleSearchFactors where factor != 1 {
++    for factor in q4AffineScaleSearchFactors {
+         // Round-trip through the stored dtype before measuring error. This makes the
+         // search score the exact grid that safetensors and the runtime will consume.
+         let candidateScale = (baselineScales * factor).asType(weight.dtype).asType(.float32)
+-        let candidateBias =
++        let centeredBias =
+             (baselineCenter - candidateScale * Float(7.5))
+             .asType(weight.dtype)
+             .asType(.float32)
+         let valid = MLX.abs(candidateScale) .> Float(0)
+         let safeScale = MLX.where(valid, candidateScale, baselineScales)
+-        let safeBias = MLX.where(valid, candidateBias, biases)
+-        let candidateCodes = MLX.clip(
+-            MLX.round((grouped - safeBias) / safeScale), min: 0, max: 15
++        let safeCenteredBias = MLX.where(valid, centeredBias, biases)
++        let centeredCodes = MLX.clip(
++            MLX.round((grouped - safeCenteredBias) / safeScale), min: 0, max: 15
+         ).asType(.uint32)
+-        let candidateReconstruction = candidateCodes.asType(.float32) * safeScale + safeBias
+-        let candidateError = MLX.mean(
+-            MLX.square(grouped - candidateReconstruction), axis: -1, keepDims: true)
++        let centeredReconstruction =
++            centeredCodes.asType(.float32) * safeScale + safeCenteredBias
++        let centeredError = MLX.mean(
++            MLX.square(grouped - centeredReconstruction), axis: -1, keepDims: true)
++
++        // With scale and integer assignments fixed, mean(x - q*s) is the exact
++        // least-squares affine bias. Requantize after the update because moving the grid
++        // can change code assignments, and retain the centered candidate as a fallback.
++        let refinedBias = MLX.mean(
++            grouped - centeredCodes.asType(.float32) * safeScale,
++            axis: -1,
++            keepDims: true
++        ).asType(weight.dtype).asType(.float32)
++        let safeRefinedBias = MLX.where(valid, refinedBias, biases)
++        let refinedCodes = MLX.clip(
++            MLX.round((grouped - safeRefinedBias) / safeScale), min: 0, max: 15
++        ).asType(.uint32)
++        let refinedReconstruction =
++            refinedCodes.asType(.float32) * safeScale + safeRefinedBias
++        let refinedError = MLX.mean(
++            MLX.square(grouped - refinedReconstruction), axis: -1, keepDims: true)
++        let useRefined = valid .&& (refinedError .< centeredError)
++        let candidateBias = MLX.where(useRefined, safeRefinedBias, safeCenteredBias)
++        let candidateCodes = MLX.where(useRefined, refinedCodes, centeredCodes)
++        let candidateError = MLX.where(useRefined, refinedError, centeredError)
+         let improved = valid .&& (candidateError .< bestError)
+ 
+         let packedGroups = candidateCodes.reshaped(
+@@ -855,7 +878,7 @@ public func q4AffineScaleSearchQuantized(
+         let candidateWeight = MLX.sum(packedGroups << shifts, axis: -1).asType(.uint32)
+         bestWeight = MLX.where(improved, candidateWeight, bestWeight)
+         bestScales = MLX.where(improved, safeScale, bestScales)
+-        bestBiases = MLX.where(improved, safeBias, bestBiases)
++        bestBiases = MLX.where(improved, candidateBias, bestBiases)
+         bestError = MLX.where(improved, candidateError, bestError)
+ 
+         // Conversion is offline. Materializing after each candidate bounds the lazy graph

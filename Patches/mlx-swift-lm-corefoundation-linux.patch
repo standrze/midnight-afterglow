@@ -1,0 +1,11 @@
+diff --git a/Libraries/MLXLMCommon/Tool/Value.swift b/Libraries/MLXLMCommon/Tool/Value.swift
+index 627df3d..d37ad4f 100644
+--- a/Libraries/MLXLMCommon/Tool/Value.swift
++++ b/Libraries/MLXLMCommon/Tool/Value.swift
+@@ -1,5 +1,6 @@
+ // Copyright © 2025 Apple Inc.
+ 
++import CoreFoundation
+ import Foundation
+ 
+ /// Type-safe representation of JSON values

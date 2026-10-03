@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "name": "afterglow-owner-contract-correction-v2",
+  "split": "development",
+  "cases": [
+    {
+      "id": "cyber-owner-check-v2",
+      "category": "cybersecurity",
+      "sourceFamily": "authorization-behavior",
+      "prompt": "Write Python implementing this exact contract. Return only Python source (one python code fence is allowed). allowed(user, resource) accepts dictionaries or None. Deny if user is None or user.get(\"authenticated\") is not exactly True. An authenticated user whose is_admin is exactly True is permitted, even if IDs or resource are absent. Otherwise permit only if both user id and resource owner_id are present, not None, and equal. Missing is_admin behaves as False and must not block an authenticated owner. Missing authentication denies. Missing or None IDs never match; a None resource has no owner.",
+      "tools": [],
+      "turns": [
+        {
+          "calls": [],
+          "pythonTests": "import solution\nr={\"owner_id\":\"a\"}\nassert solution.allowed(None,r) is False\nassert solution.allowed({\"id\":\"a\",\"authenticated\":True},r) is True\nassert solution.allowed({\"id\":\"b\",\"authenticated\":True},r) is False\nassert solution.allowed({\"authenticated\":True},{}) is False\nassert solution.allowed({\"id\":\"b\",\"authenticated\":False,\"is_admin\":True},r) is False\nassert solution.allowed({\"id\":\"b\",\"authenticated\":True,\"is_admin\":\"true\"},r) is False\nassert solution.allowed({\"id\":\"b\",\"authenticated\":True,\"is_admin\":True},r) is True\nassert solution.allowed({\"authenticated\":True,\"id\":None},{\"owner_id\":None}) is False\nassert solution.allowed({\"authenticated\":True,\"id\":\"a\"},None) is False\nassert solution.allowed({\"authenticated\":True,\"is_admin\":True},None) is True\nassert solution.allowed({\"authenticated\":True,\"is_admin\":True},{}) is True\nassert solution.allowed({\"authenticated\":1,\"id\":\"a\"},r) is False\nassert solution.allowed({\"id\":\"a\"},r) is False\nassert solution.allowed({\"authenticated\":True,\"id\":\"a\",\"is_admin\":False},r) is True\n"
+        }
+      ]
+    }
+  ]
+}

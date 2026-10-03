@@ -1,0 +1,21 @@
+diff --git a/Libraries/MLXLLM/Models/Gemma4Text.swift b/Libraries/MLXLLM/Models/Gemma4Text.swift
+--- a/Libraries/MLXLLM/Models/Gemma4Text.swift
++++ b/Libraries/MLXLLM/Models/Gemma4Text.swift
+@@ -951,11 +951,12 @@ public class Gemma4TextModel: Module, LLMModel, KVCacheDimensionProvider {
+     public func newCache(parameters: GenerateParameters?) throws -> [any KVCache] {
+         let firstKvShared = config.numHiddenLayers - config.numKvSharedLayers
+ 
+-        return try (0 ..< firstKvShared).map { i in
+-            try makeHybridAttentionKVCache(
+-                parameters: parameters,
+-                slidingWindow: config.slidingWindow,
+-                usesSlidingWindow: config.layerTypes[i] != "full_attention")
++        // RotatingKVCache corrupts Gemma 4 text generation when its 512-token
++        // window wraps. Keep an ordinary cache for every stored K/V source;
++        // Gemma4Attention still applies the architecture's sliding-window mask,
++        // so this changes cache storage rather than the model's attention span.
++        return try (0 ..< firstKvShared).map { _ in
++            try makeAttentionKVCache(parameters: parameters)
+         }
+     }
+ }

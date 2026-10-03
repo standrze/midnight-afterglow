@@ -1,0 +1,37 @@
+--- a/Libraries/MLXLMCommon/ModelConversion.swift
++++ b/Libraries/MLXLMCommon/ModelConversion.swift
+@@ -36,14 +36,14 @@
+ 
+     /// Search nearby affine Q4 scales while preserving MLX's ordinary packed layout.
+     ///
+-    /// For every selected 64- or 128-value group, the search starts from MLX's standard affine scale and
++    /// For every selected 32-, 64-, or 128-value group, the search starts from MLX's standard affine scale and
+     /// bias. It searches nine nearby scale multipliers while preserving the baseline grid
+     /// center, requantizes the group, and keeps a candidate only when its reconstruction MSE is
+     /// strictly lower. Factor 1.0 is the byte-compatible MLX baseline, so the search
+     /// cannot make per-group reconstruction error worse.
+     ///
+     /// This is an experimental Q4R8-specific adaptation of the *idea* behind ScaleSearch,
+-    /// not the paper's NVFP4 E4M3/E2M1 algorithm. It requires 4 bits, group size 64 or 128, and
++    /// not the paper's NVFP4 E4M3/E2M1 algorithm. It requires 4 bits, group size 32, 64, or 128, and
+     /// `QuantizationMode.affine`. Q8 overrides should continue using ``standard``.
+     /// Linear and SwitchLinear layers use the searched grid; embeddings use standard MLX
+     /// quantization because QuantizedEmbedding cannot accept precomputed affine arrays.
+@@ -730,7 +730,7 @@
+     case .q4AffineScaleSearch:
+         let compatible =
+             (quantization.bits ?? q4AffineScaleSearchBits) == q4AffineScaleSearchBits
+-            && [64, 128].contains(quantization.groupSize ?? q4AffineScaleSearchGroupSize)
++            && [32, 64, 128].contains(quantization.groupSize ?? q4AffineScaleSearchGroupSize)
+             && quantization.mode == .affine
+         if !compatible {
+             throw ModelConversionError.incompatibleCalibration(
+@@ -818,7 +818,7 @@
+     groupSize: Int = 64,
+     rowBatchSize: Int? = nil
+ ) -> (weight: MLXArray, scales: MLXArray, biases: MLXArray) {
+-    precondition([64, 128].contains(groupSize), "AffineScaleSearch-Q4 supports group sizes 64 and 128")
++    precondition([32, 64, 128].contains(groupSize), "AffineScaleSearch-Q4 supports group sizes 32, 64, and 128")
+     precondition(
+         weight.dim(-1) % groupSize == 0,
+         "AffineScaleSearch-Q4 requires the input width to be divisible by its group size")

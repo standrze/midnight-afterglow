@@ -1,0 +1,153 @@
+diff --git a/mlx/compile.cpp b/mlx/compile.cpp
+--- a/mlx/compile.cpp
++++ b/mlx/compile.cpp
+@@ -1,8 +1,10 @@
+ // Copyright © 2023-2024 Apple Inc.
+ 
++#include <algorithm>
+ #include <atomic>
+ #include <cstdlib>
+ #include <map>
++#include <mutex>
+ #include <shared_mutex>
+ #include <sstream>
+ #include <unordered_map>
+@@ -392,13 +394,25 @@
+   }
+ 
+   void erase(std::uintptr_t fun_id) {
+-    std::unique_lock lock(mutex_);
+-    cache_.erase(fun_id);
++    // Graph/extra owners may re-enter compilation cleanup on destruction.
++    // Remove the entry under the cache lock, but release it after unlocking.
++    std::shared_ptr<std::vector<CacheEntry>> removed;
++    {
++      std::unique_lock lock(mutex_);
++      if (auto it = cache_.find(fun_id); it != cache_.end()) {
++        removed = std::move(it->second);
++        cache_.erase(it);
++      }
++    }
+   }
+ 
+   void clear() {
+-    std::unique_lock lock(mutex_);
+-    cache_.clear();
++    // As for erase(), graph/extra destruction may re-enter cache cleanup.
++    decltype(cache_) removed;
++    {
++      std::unique_lock lock(mutex_);
++      removed.swap(cache_);
++    }
+   }
+ 
+  private:
+@@ -411,9 +425,74 @@
+   std::shared_mutex mutex_;
+ };
+ 
++// Function objects can be destroyed on a different thread from every trace.
++// Retain only weak cache handles globally so their constants can be released
++// at function destruction without keeping a thread's compiler cache alive.
++class CompileCacheRegistry {
++ public:
++  void add(const std::shared_ptr<CompileCache>& cache) {
++    std::lock_guard lock(mutex_);
++    prune_locked();
++    caches_.push_back(cache);
++  }
++
++  void prune() {
++    std::lock_guard lock(mutex_);
++    prune_locked();
++  }
++
++  std::vector<std::shared_ptr<CompileCache>> snapshot() {
++    std::vector<std::shared_ptr<CompileCache>> result;
++    std::lock_guard lock(mutex_);
++    prune_locked();
++    // Allocate before acquiring any strong cache references. If allocation
++    // fails, no final cache owner can be destroyed under the registry mutex.
++    result.reserve(caches_.size());
++    for (auto& weak : caches_) {
++      if (auto cache = weak.lock()) {
++        result.push_back(std::move(cache));
++      }
++    }
++    return result;
++  }
++
++ private:
++  void prune_locked() {
++    caches_.erase(
++        std::remove_if(caches_.begin(), caches_.end(),
++                       [](const auto& cache) { return cache.expired(); }),
++        caches_.end());
++  }
++
++  std::mutex mutex_;
++  std::vector<std::weak_ptr<CompileCache>> caches_;
++};
++
++CompileCacheRegistry& compile_cache_registry() {
++  // Process-lifetime weak metadata avoids static destruction ordering with
++  // Swift function objects and thread-local compiler caches.
++  static auto* registry = new CompileCacheRegistry;
++  return *registry;
++}
++
++struct ThreadCompileCache {
++  ThreadCompileCache() : cache(std::make_shared<CompileCache>()) {
++    compile_cache_registry().add(cache);
++  }
++
++  ~ThreadCompileCache() {
++    cache.reset();
++    compile_cache_registry().prune();
++  }
++
++  std::shared_ptr<CompileCache> cache;
++};
++
+ std::shared_ptr<CompileCache>& compile_cache_unsafe() {
+-  static thread_local auto cache = std::make_shared<CompileCache>();
+-  return cache;
++  // Registration runs once for each thread, with no registry work on a warm
++  // compiled call. Each thread still owns its independent compiler cache.
++  static thread_local ThreadCompileCache local;
++  return local.cache;
+ }
+ 
+ std::tuple<std::vector<array>, std::vector<array>, std::shared_ptr<void>>
+@@ -1225,6 +1304,17 @@
+   }
+ }
+ 
++void compile_erase_all_threads(std::uintptr_t fun_id) {
++  // Release the registry lock before erasing entries or dropping graph owners.
++  // A caller must own the function lifetime, as for compile_erase(). Swift
++  // additionally holds evalLock until every erase completes so its address-
++  // based function ID cannot be reused by a newly allocated function.
++  auto caches = compile_cache_registry().snapshot();
++  for (auto& cache : caches) {
++    cache->erase(fun_id);
++  }
++}
++
+ void compile_clear_cache(const CompileCacheWeakPtr& cache) {
+   if (auto p = cache.lock()) {
+     p->clear();
+diff --git a/mlx/compile_impl.h b/mlx/compile_impl.h
+--- a/mlx/compile_impl.h
++++ b/mlx/compile_impl.h
+@@ -37,6 +37,10 @@
+     const CompileCacheWeakPtr& cache,
+     std::uintptr_t fun_id);
+ 
++// Erase one function's entries from all live thread-local caches. Use only
++// when the function lifetime ends; other functions' entries remain intact.
++MLX_API void compile_erase_all_threads(std::uintptr_t fun_id);
++
+ // Clear the compiler cache causing a recompilation of all compiled functions
+ // when called again.
+ MLX_API void compile_clear_cache(const CompileCacheWeakPtr& cache);

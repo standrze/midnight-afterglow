@@ -1,0 +1,130 @@
+diff --git a/Package.swift b/Package.swift
+index 652d3aa..1903419 100644
+--- a/Package.swift
++++ b/Package.swift
+@@ -4,4 +4,12 @@
+ 
+ import PackageDescription
+ 
++let extraCudaIncludePaths =
++    (Context.environment["MLX_CUDA_INCLUDE_PATHS"] ?? "")
++    .split(separator: ":")
++    .map(String.init)
++    .filter { !$0.isEmpty }
++
++let cudaCcclDir = Context.environment["MLX_CCCL_DIR"] ?? "/usr/local/cuda/include/cccl"
++
+ let noMetalCmlxExcludes = [
+@@ -110,10 +118,11 @@ let noCudaCmlxExcludes = [
+                 "mlx/mlx/backend/cuda/quantized/qmm",
+             ] + noMetalCmlxExcludes
+ 
+-        cxxSettings = [
+-            .unsafeFlags(["-I/usr/local/cuda/include"]),
+-            .unsafeFlags(["-I/usr/local/cuda/include/cccl"]),
+-            .define("MLX_CCCL_DIR", to: "\"/usr/local/cuda/include/cccl\""),
+-        ]
++        cxxSettings =
++            [
++                .unsafeFlags(["-I/usr/local/cuda/include"]),
++                .unsafeFlags(["-I\(cudaCcclDir)"]),
++                .define("MLX_CCCL_DIR", to: "\"\(cudaCcclDir)\""),
++            ] + extraCudaIncludePaths.map { .unsafeFlags(["-I\($0)"]) }
+ 
+         linkerSettings = [
+diff --git a/Plugins/CudaBuild/plugin.swift b/Plugins/CudaBuild/plugin.swift
+index f7d12dd..54d7b58 100644
+--- a/Plugins/CudaBuild/plugin.swift
++++ b/Plugins/CudaBuild/plugin.swift
+@@ -40,11 +40,8 @@ struct CudaBuild: BuildToolPlugin {
+             return []
+         }
+ 
+-        guard let clangUrl = try? context.tool(named: "clang++") else {
+-            fatalError("clang++ not found")
+-        }
+-
+-        print("Use clang++ at: \(clangUrl.url.path)")
++        let hostCXXPath = cudaHostCXXPath(context: context)
++        print("Use CUDA host C++ compiler at: \(hostCXXPath)")
+ 
+         let sourceDir = target.directoryURL
+ 
+@@ -132,4 +129,16 @@ struct CudaBuild: BuildToolPlugin {
+         }
+         let stdArgs = settings.cppLanguageStandard.map { ["--std", $0] } ?? []
+ 
++        let environment = ProcessInfo.processInfo.environment
++        var externalIncludeRoots: [String] = []
++        if let ccclDir = environment["MLX_CCCL_DIR"] {
++            externalIncludeRoots.append(ccclDir)
++        }
++        let extraRoots = environment["MLX_CUDA_INCLUDE_PATHS"] ?? ""
++        externalIncludeRoots += extraRoots.split(separator: ":").map(String.init)
++        let externalIncludeArgs: [String] =
++            externalIncludeRoots
++            .filter { !$0.isEmpty }
++            .flatMap { ["-I", $0] }
++
+         for inputFile in sourceCuFiles + generatedCuFiles {
+@@ -141,9 +150,9 @@ struct CudaBuild: BuildToolPlugin {
+                         "Compiling \(inputFile.lastPathComponent) to \(outputCpp.lastPathComponent)",
+                     executable: encuda.url,
+                     arguments: ["compile"] + verboseFlag + stdArgs + incrementalFlag + [
+-                        "--clangpp", clangUrl.url.path,
++                        "--clangpp", hostCXXPath,
+                         "-I", sourceDir.path,
+-                    ] + headerSearchPathArgs + [
++                    ] + headerSearchPathArgs + externalIncludeArgs + [
+                         inputFile.path,
+                         "-o", outputCpp.path,
+                     ],
+@@ -168,7 +177,7 @@ struct CudaBuild: BuildToolPlugin {
+                 displayName: "Linking CUDA objects",
+                 executable: encuda.url,
+                 arguments: ["link"] + verboseFlag + stdArgs + incrementalFlag + [
+-                    "--clangpp", clangUrl.url.path,
++                    "--clangpp", hostCXXPath,
+                 ] + outputCpps.map { $0.path } + ["-o", linkOutput.path],
+                 inputFiles: outputCpps,
+                 outputFiles: [linkOutput]
+@@ -178,4 +187,39 @@ struct CudaBuild: BuildToolPlugin {
+         return commands
+     }
+ 
++    func cudaHostCXXPath(context: PluginContext) -> String {
++        let environment = ProcessInfo.processInfo.environment
++        let configuredCompiler: (name: String, path: String)?
++        if let path = environment["MLX_CUDA_HOST_CXX"] {
++            configuredCompiler = ("MLX_CUDA_HOST_CXX", path)
++        } else if let path = environment["CUDAHOSTCXX"] {
++            configuredCompiler = ("CUDAHOSTCXX", path)
++        } else {
++            configuredCompiler = nil
++        }
++
++        if let configuredCompiler {
++            guard configuredCompiler.path.hasPrefix("/") else {
++                fatalError("\(configuredCompiler.name) must be an absolute path")
++            }
++            var isDirectory = ObjCBool(false)
++            let exists = FileManager.default.fileExists(
++                atPath: configuredCompiler.path,
++                isDirectory: &isDirectory)
++            guard exists, !isDirectory.boolValue,
++                FileManager.default.isExecutableFile(atPath: configuredCompiler.path)
++            else {
++                fatalError(
++                    "\(configuredCompiler.name) must name an executable file: "
++                        + configuredCompiler.path)
++            }
++            return configuredCompiler.path
++        }
++
++        guard let clangUrl = try? context.tool(named: "clang++") else {
++            fatalError("clang++ not found")
++        }
++        return clangUrl.url.path
++    }
++
+     func isExcluded(settings: Settings, relativePath: String) -> Bool {

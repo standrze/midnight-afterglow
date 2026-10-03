@@ -1,0 +1,80 @@
+{
+  "recorded_at": "2026-10-02T17:26:01.622818+00:00",
+  "historical_specification": {
+    "path": "/Users/stephen/Documents/ChatGPT/wick/Docs/mlx-quantization-standard-v1.md",
+    "sha256": "b71af80cec3b089d6726e4598939b3d71f3d869e643b3fe1d5a77945ab0ef0d6"
+  },
+  "active_specification": {
+    "path": "/Users/stephen/Documents/ChatGPT/afterglow/Docs/mlx-quantization-standard-v2.md",
+    "sha256": "f8ed9967a92adeae4136975c2fe257b9afc9e2761c3547bff7a528ff770efd48"
+  },
+  "relationship": "New current measurement contract under the owner-selected midnight-afterglow project; preserved v1 is not modified or copied as an active implementation.",
+  "previous_active_specification_hashes": [
+    {
+      "sha256": "5ff9b475bdb273734ee35a41e9db8a047362bcadcf60b961aa63ebac9db3be1a",
+      "reason": "Refresh completed fresh quality, A4B memory, active 31B repeat and native Swift evaluation evidence."
+    },
+    {
+      "sha256": "949c5bc1cd8f6b5b6cbe5b70c9204809fba8992eca649433a029cd39983553e7",
+      "reason": "Both covariance serving-memory comparisons completed and independently verified; repository generation live."
+    },
+    {
+      "sha256": "0275b23a8736b721673b23ad7b7273e59872e0d203574f951998fd7d95b52187",
+      "reason": "Completed repository/context and native Swift suite; ambiguous owner case quarantined and repaired; timing resumes after twelve package tests."
+    },
+    {
+      "sha256": "41741852b67d2a54a41400a10e6157c6ae69cc197e2682c02c95b098cd395534",
+      "reason": "Completed native Swift runtime integration, eighteen no-skip package checks, corroborated pilot authentication gain and separately preregistered A4B residency diagnostic."
+    },
+    {
+      "sha256": "29778d7236cb71ed87020dda9a4a80285a985bed535b55f23d84b13e9b4c2273",
+      "reason": "Native Swift residency diagnostic integrated after nineteen successful package checks; final command package checks remain running and no diagnostic model work has started."
+    },
+    {
+      "sha256": "18344dabb24d3c5e18708d8e8efd8a342f3eb9748b32f9543b121cbe03fa5d4f",
+      "reason": "Native Swift diagnostic passed twenty package tests and was queued from a frozen validated executable behind the live 31B campaign; no diagnostic generation has started."
+    },
+    {
+      "sha256": "8480b4c0f84fadff753a00a2bbd675ec69f895ddc65b4853699e5ca56f839d47",
+      "reason": "Owner requested smaller screening rounds; legacy control run canceled with partial evidence preserved."
+    },
+    {
+      "sha256": "4579f9853efe484b4acaf3a7483cd4ed1e46594403b5f2c44cdafd4ccb44e6e8",
+      "reason": "Completed all small recipe speed/quality screens; task-level regression review and rejected Q8 payload cleanup."
+    },
+    {
+      "sha256": "38102b7192eeb573dc95d0f61e77774a186fd96d8f35733698bb0ce833d6753b",
+      "reason": "Record fixture-validated native G32 ScaleSearch and one quality-first A4B experiment with disk reserve; no model accuracy or performance claim."
+    },
+    {
+      "sha256": "04cde0c80e03bd6e33aef9536a2de52befdb2387a22e3a24684194bb30add662",
+      "reason": "A4B G32 four-case screen complete, no gain; rejected owned weights deleted without additional timing rounds."
+    },
+    {
+      "sha256": "b82c654845638a9e74f3a19a2a7740daa7364fdacc8bf3acb7f73d64246456e8",
+      "reason": "Strengthened five-model screen completed with no regression-free gains; rejected Q5 and 31B covariance owned payloads retired."
+    },
+    {
+      "sha256": "1c73f3476bb7dcda60f684a4d8c60a4f5deac6ad021a225222456158d077c1ef",
+      "reason": "Single Q8 diagnostic passes redirect, isolated embedding override regresses and is retired; attention-only preflight has no model gain claim."
+    },
+    {
+      "sha256": "0c7847a408e439d7b451825994baf11cb913a5f668ae3e3fd60ca3eb9734c801",
+      "reason": "Attention-only Q8 ties incumbent and is retired; reaffirm single-pass quality-first screening with two speed pairs only for survivors."
+    },
+    {
+      "sha256": "93b876f0aa101d0949f9f3719e64ef0622dd9ba9f744229fc040df068a5bd65a",
+      "reason": "Combined embedding/attention Q8 single-pass screen ties incumbent; rejected payload retired without timing rounds."
+    },
+    {
+      "sha256": "12ad6210e1a57efd5bd5442ecd85ca634c47068d7257d88820101d462270b7c1",
+      "reason": "Retained A4B covariance Q4 regresses on strengthened coding screen; retire owned weights and preserve earlier authentication gain evidence."
+    }
+  ],
+  "updated_at": "2026-10-03T04:02:33.125240+00:00",
+  "screening_protocol_update": {
+    "at": "2026-10-03T00:28:19.161004+00:00",
+    "document_sha256": "4579f9853efe484b4acaf3a7483cd4ed1e46594403b5f2c44cdafd4ccb44e6e8",
+    "reason": "Owner requested fewer screening rounds"
+  }
+}

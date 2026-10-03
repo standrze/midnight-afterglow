@@ -1,0 +1,124 @@
+diff --git a/Libraries/MLXLMCommon/ModelConversion.swift b/Libraries/MLXLMCommon/ModelConversion.swift
+--- a/Libraries/MLXLMCommon/ModelConversion.swift
++++ b/Libraries/MLXLMCommon/ModelConversion.swift
+@@ -784,9 +784,10 @@
+ /// MLX anchors its affine grid at the larger-magnitude edge (`bias`) and chooses a signed
+ /// scale. The search tries scale multipliers from 0.75 through 1.25 in 1/16 increments and
+ /// initially adjusts the affine bias to retain the baseline grid center. For each scale it
+-/// then performs one least-squares bias update from the assigned codes and keeps whichever
+-/// affine grid is better. This tests clipping/expansion and a data-driven center correction
+-/// while retaining packed 0...15 codes, metadata dtypes, and the ordinary decode kernel.
++/// then performs one least-squares bias update followed by two joint slope/intercept fits,
++/// requantizing after each step and retaining only exact MSE improvements. This tests
++/// clipping/expansion and data-driven affine corrections while retaining packed 0...15
++/// codes, metadata dtypes, and the ordinary decode kernel.
+ ///
+ /// The ordinary MLX result initializes every group. A candidate replaces it only on a
+ /// strict MSE improvement, which makes standard Q4 a per-group fallback and handles zero
+@@ -832,6 +833,7 @@
+     MLX.eval(bestError, bestWeight, bestScales, bestBiases)
+ 
+     let baselineCenter = biases + baselineScales * Float(7.5)
++    let groupMean = MLX.mean(grouped, axis: -1, keepDims: true)
+     for factor in q4AffineScaleSearchFactors {
+         // Round-trip through the stored dtype before measuring error. This makes the
+         // search score the exact grid that safetensors and the runtime will consume.
+@@ -868,18 +870,90 @@
+         let refinedError = MLX.mean(
+             MLX.square(grouped - refinedReconstruction), axis: -1, keepDims: true)
+         let useRefined = valid .&& (refinedError .< centeredError)
+-        let candidateBias = MLX.where(useRefined, safeRefinedBias, safeCenteredBias)
+-        let candidateCodes = MLX.where(useRefined, refinedCodes, centeredCodes)
+-        let candidateError = MLX.where(useRefined, refinedError, centeredError)
+-        let improved = valid .&& (candidateError .< bestError)
++        let biasRefinedBias = MLX.where(useRefined, safeRefinedBias, safeCenteredBias)
++        let biasRefinedCodes = MLX.where(useRefined, refinedCodes, centeredCodes)
++        let biasRefinedError = MLX.where(useRefined, refinedError, centeredError)
+ 
+-        let packedGroups = candidateCodes.reshaped(
++        // The assigned integer codes also admit an exact least-squares affine fit. Use the
++        // scale factors as deterministic initializations, fit slope and intercept together,
++        // then requantize and score the exact stored-dtype grid.
++        let codeValues = biasRefinedCodes.asType(.float32)
++        let codeMean = MLX.mean(codeValues, axis: -1, keepDims: true)
++        let centeredCodesForFit = codeValues - codeMean
++        let codeVariance = MLX.mean(
++            MLX.square(centeredCodesForFit), axis: -1, keepDims: true)
++        let hasVariance = codeVariance .> Float(0)
++        let safeVariance = MLX.where(hasVariance, codeVariance, MLXArray(Float(1)))
++        let covariance = MLX.mean(
++            centeredCodesForFit * (grouped - groupMean), axis: -1, keepDims: true)
++        let fittedScale = (covariance / safeVariance)
++            .asType(weight.dtype)
++            .asType(.float32)
++        let fittedBias = (groupMean - fittedScale * codeMean)
++            .asType(weight.dtype)
++            .asType(.float32)
++        let fitValid = valid .&& hasVariance
++            .&& (MLX.abs(fittedScale) .> Float(0))
++            .&& ((fittedScale * baselineScales) .> Float(0))
++        let safeFittedScale = MLX.where(fitValid, fittedScale, safeScale)
++        let safeFittedBias = MLX.where(fitValid, fittedBias, biasRefinedBias)
++        let fittedCodes = MLX.clip(
++            MLX.round((grouped - safeFittedBias) / safeFittedScale), min: 0, max: 15
++        ).asType(.uint32)
++        let fittedReconstruction =
++            fittedCodes.asType(.float32) * safeFittedScale + safeFittedBias
++        let fittedError = MLX.mean(
++            MLX.square(grouped - fittedReconstruction), axis: -1, keepDims: true)
++        let useFitted = fitValid .&& (fittedError .< biasRefinedError)
++        let selectedScale = MLX.where(useFitted, safeFittedScale, safeScale)
++        let candidateBias = MLX.where(useFitted, safeFittedBias, biasRefinedBias)
++        let candidateCodes = MLX.where(useFitted, fittedCodes, biasRefinedCodes)
++        let candidateError = MLX.where(useFitted, fittedError, biasRefinedError)
++
++        // One more coordinate-descent step captures groups whose assignments changed after
++        // the first joint fit. As above, exact MSE decides whether the iteration is retained.
++        let secondCodeValues = candidateCodes.asType(.float32)
++        let secondCodeMean = MLX.mean(secondCodeValues, axis: -1, keepDims: true)
++        let secondCenteredCodes = secondCodeValues - secondCodeMean
++        let secondCodeVariance = MLX.mean(
++            MLX.square(secondCenteredCodes), axis: -1, keepDims: true)
++        let secondHasVariance = secondCodeVariance .> Float(0)
++        let secondSafeVariance = MLX.where(
++            secondHasVariance, secondCodeVariance, MLXArray(Float(1)))
++        let secondCovariance = MLX.mean(
++            secondCenteredCodes * (grouped - groupMean), axis: -1, keepDims: true)
++        let secondFittedScale = (secondCovariance / secondSafeVariance)
++            .asType(weight.dtype)
++            .asType(.float32)
++        let secondFittedBias = (groupMean - secondFittedScale * secondCodeMean)
++            .asType(weight.dtype)
++            .asType(.float32)
++        let secondFitValid = valid .&& secondHasVariance
++            .&& (MLX.abs(secondFittedScale) .> Float(0))
++            .&& ((secondFittedScale * baselineScales) .> Float(0))
++        let safeSecondScale = MLX.where(secondFitValid, secondFittedScale, selectedScale)
++        let safeSecondBias = MLX.where(secondFitValid, secondFittedBias, candidateBias)
++        let secondFittedCodes = MLX.clip(
++            MLX.round((grouped - safeSecondBias) / safeSecondScale), min: 0, max: 15
++        ).asType(.uint32)
++        let secondReconstruction =
++            secondFittedCodes.asType(.float32) * safeSecondScale + safeSecondBias
++        let secondError = MLX.mean(
++            MLX.square(grouped - secondReconstruction), axis: -1, keepDims: true)
++        let useSecondFit = secondFitValid .&& (secondError .< candidateError)
++        let finalScale = MLX.where(useSecondFit, safeSecondScale, selectedScale)
++        let finalBias = MLX.where(useSecondFit, safeSecondBias, candidateBias)
++        let finalCodes = MLX.where(useSecondFit, secondFittedCodes, candidateCodes)
++        let finalError = MLX.where(useSecondFit, secondError, candidateError)
++        let improved = valid .&& (finalError .< bestError)
++
++        let packedGroups = finalCodes.reshaped(
+             groupCount, wordsPerGroup, codesPerWord)
+         let candidateWeight = MLX.sum(packedGroups << shifts, axis: -1).asType(.uint32)
+         bestWeight = MLX.where(improved, candidateWeight, bestWeight)
+-        bestScales = MLX.where(improved, safeScale, bestScales)
+-        bestBiases = MLX.where(improved, candidateBias, bestBiases)
+-        bestError = MLX.where(improved, candidateError, bestError)
++        bestScales = MLX.where(improved, finalScale, bestScales)
++        bestBiases = MLX.where(improved, finalBias, bestBiases)
++        bestError = MLX.where(improved, finalError, bestError)
+ 
+         // Conversion is offline. Materializing after each candidate bounds the lazy graph
+         // and transient memory for Laguna's very large stacked expert tensors.

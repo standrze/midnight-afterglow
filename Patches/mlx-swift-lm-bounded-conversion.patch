@@ -1,0 +1,237 @@
+--- a/Libraries/MLXLMCommon/Load.swift
++++ b/Libraries/MLXLMCommon/Load.swift
+@@ -154,7 +154,8 @@
+     modelDirectory: URL, model: BaseLanguageModel,
+     quantization: BaseConfiguration.Quantization? = nil,
+     perLayerQuantization: BaseConfiguration.PerLayerQuantization? = nil,
+-    weightFileSelection: WeightFileSelection = .automatic
++    weightFileSelection: WeightFileSelection = .automatic,
++    evaluate: Bool = true
+ ) throws {
+     // load the weights and collect metadata from the first safetensor file
+     var weights = [String: MLXArray]()
+@@ -196,5 +197,5 @@
+     let parameters = ModuleParameters.unflattened(weights)
+     try model.update(parameters: parameters, verify: [.all])
+ 
+-    eval(model)
+-}
++    if evaluate { eval(model) }
++}
+--- a/Libraries/MLXLMCommon/ModelConversion.swift
++++ b/Libraries/MLXLMCommon/ModelConversion.swift
+@@ -96,6 +96,9 @@
+ 
+ /// Options controlling model conversion.
+ public struct ModelConversionOptions: Sendable {
++    /// Materialize one source module at a time and batch ScaleSearch rows.
++    public var boundedMemory: Bool = false
++
+     /// Default quantization settings.
+     public var quantization: ModelConversionQuantization
+ 
+@@ -274,11 +277,13 @@
+     try loadWeights(
+         modelDirectory: modelDirectory,
+         model: model,
+-        perLayerQuantization: perLayerQuantization)
++        perLayerQuantization: perLayerQuantization,
++        evaluate: !options.boundedMemory)
+ 
+     progressHandler(.init(stage: .quantizing))
+     let quantizationResult = quantizeForModelConversion(
+-        model: model, options: options, decisions: quantizationDecisions)
++        model: model, options: options, decisions: quantizationDecisions,
++        progressHandler: progressHandler)
+     eval(model)
+ 
+     progressHandler(.init(stage: .savingWeights))
+@@ -622,52 +627,58 @@
+ private func quantizeForModelConversion(
+     model: BaseLanguageModel,
+     options: ModelConversionOptions,
+-    decisions: [(String, Module, ModelConversionQuantizationDecision)]
++    decisions: [(String, ModelConversionQuantizationDecision)],
++    progressHandler: @Sendable (ModelConversionProgress) -> Void
+ ) -> ModelConversionQuantizationResult {
+     var layerQuantization = [String: ModelConversionQuantizationDecision]()
+     let defaultQuantization = options.quantization
+     var effectiveDefaultQuantization = effectiveModelConversionQuantization(defaultQuantization)
+ 
+-    let updates =
+-        decisions
+-        .compactMap { path, module, decision -> (String, Module)? in
+-            let quantization: ModelConversionQuantization
+-            let usesDefaultQuantization: Bool
+-            switch decision {
+-            case .skip:
+-                layerQuantization[path] = .skip
+-                return nil
+-            case .quantize(let override):
+-                quantization = override ?? defaultQuantization
+-                usesDefaultQuantization = override == nil
++    var remainingModules = Dictionary(uniqueKeysWithValues: model.leafModules().flattened())
++    var updates = [(String, Module)]()
++    for (path, decision) in decisions {
++        guard let module = remainingModules.removeValue(forKey: path) else { continue }
++        let quantization: ModelConversionQuantization
++        let usesDefaultQuantization: Bool
++        switch decision {
++        case .skip:
++            layerQuantization[path] = .skip
++            continue
++        case .quantize(let override):
++            quantization = override ?? defaultQuantization
++            usesDefaultQuantization = override == nil
++        }
++        let effectiveQuantization = effectiveModelConversionQuantization(quantization)
++        guard isConvertibleQuantizationTarget(module, groupSize: effectiveQuantization.groupSize),
++              let result = quantizeLayerForModelConversion(
++                layer: module, quantization: quantization,
++                rowBatchSize: options.boundedMemory ? 512 : nil) else { continue }
++        if usesDefaultQuantization && defaultQuantization.hasUnresolvedDefaults {
++            effectiveDefaultQuantization = result.quantization
++        }
++        if result.quantization != effectiveDefaultQuantization {
++            layerQuantization[path] = .quantize(result.quantization.asModelConversionQuantization)
++        }
++        if options.boundedMemory {
++            eval(result.module)
++            // Sparse array paths cannot be applied by Module.update. Carry the full
++            // current leaf tree while replacing only this module; do not retain the
++            // replaced source module in a conversion-wide update list.
++            let replacement = model.leafModules().flattened().filter { _, value in
++                value is Quantizable || value is Quantized
++            }.map { name, value in
++                (name, name == path ? result.module : value)
+             }
+-
+-            let effectiveQuantization = effectiveModelConversionQuantization(quantization)
+-            guard
+-                isConvertibleQuantizationTarget(
+-                    module, groupSize: effectiveQuantization.groupSize)
+-            else {
+-                return nil
+-            }
+-
+-            guard
+-                let result = quantizeLayerForModelConversion(
+-                    layer: module, quantization: quantization)
+-            else {
+-                return nil
+-            }
+-
+-            if usesDefaultQuantization && defaultQuantization.hasUnresolvedDefaults {
+-                effectiveDefaultQuantization = result.quantization
+-            }
+-            if result.quantization != effectiveDefaultQuantization {
+-                layerQuantization[path] = .quantize(
+-                    result.quantization.asModelConversionQuantization)
+-            }
+-            return (path, result.module)
+-        }
+-
+-    model.update(modules: ModuleChildren.unflattened(updates))
++            model.update(modules: ModuleChildren.unflattened(replacement))
++            Memory.clearCache()
++            progressHandler(.init(stage: .quantizing, message: path))
++        } else {
++            updates.append((path, result.module))
++        }
++    }
++    if !options.boundedMemory {
++        model.update(modules: ModuleChildren.unflattened(updates))
++    }
+ 
+     return .init(
+         defaultQuantization: effectiveDefaultQuantization.asModelConversionQuantization,
+@@ -726,14 +737,14 @@
+ func modelConversionQuantizationDecisions(
+     model: BaseLanguageModel,
+     options: ModelConversionOptions
+-) throws -> [(String, Module, ModelConversionQuantizationDecision)] {
+-    var resolved = [(String, Module, ModelConversionQuantizationDecision)]()
++) throws -> [(String, ModelConversionQuantizationDecision)] {
++    var resolved = [(String, ModelConversionQuantizationDecision)]()
+     for (path, module) in model.leafModules().flattened() {
+         let decision = options.quantizationPredicate?(path, module) ?? .quantize()
+         if case .quantize(let override) = decision, let override {
+             try validateModelConversionCalibration(override)
+         }
+-        resolved.append((path, module, decision))
++        resolved.append((path, decision))
+     }
+     return resolved
+ }
+@@ -795,12 +806,42 @@
+ /// groups without a special output representation.
+ public func q4AffineScaleSearchQuantized(
+     _ weight: MLXArray,
+-    groupSize: Int = 64
++    groupSize: Int = 64,
++    rowBatchSize: Int? = nil
+ ) -> (weight: MLXArray, scales: MLXArray, biases: MLXArray) {
+     precondition([64, 128].contains(groupSize), "AffineScaleSearch-Q4 supports group sizes 64 and 128")
+     precondition(
+         weight.dim(-1) % groupSize == 0,
+         "AffineScaleSearch-Q4 requires the input width to be divisible by its group size")
++
++    if let rowBatchSize {
++        precondition(rowBatchSize > 0)
++        let width = weight.dim(-1)
++        let rows = weight.size / width
++        if rows > rowBatchSize {
++            let flat = weight.reshaped(rows, width)
++            var packed = [MLXArray]()
++            var scales = [MLXArray]()
++            var biases = [MLXArray]()
++            for start in stride(from: 0, to: rows, by: rowBatchSize) {
++                let result = q4AffineScaleSearchQuantized(
++                    flat[start ..< min(start + rowBatchSize, rows)], groupSize: groupSize)
++                eval(result.weight, result.scales, result.biases)
++                packed.append(result.weight)
++                scales.append(result.scales)
++                biases.append(result.biases)
++            }
++            var packedShape = weight.shape
++            packedShape[packedShape.count - 1] = width / 8
++            var gridShape = weight.shape
++            gridShape[gridShape.count - 1] = width / groupSize
++            let result = (concatenated(packed, axis: 0).reshaped(packedShape),
++                          concatenated(scales, axis: 0).reshaped(gridShape),
++                          concatenated(biases, axis: 0).reshaped(gridShape))
++            eval(result.0, result.1, result.2)
++            return result
++        }
++    }
+ 
+     let baseline = MLX.quantized(
+         weight,
+@@ -985,7 +1026,8 @@
+ 
+ private func quantizeLayerForModelConversion(
+     layer: Module,
+-    quantization: ModelConversionQuantization
++    quantization: ModelConversionQuantization,
++    rowBatchSize: Int? = nil
+ ) -> (module: Module, quantization: EffectiveModelConversionQuantization)? {
+     if layer is Quantized {
+         return nil
+@@ -1015,7 +1057,7 @@
+ 
+         if quantization.calibration == .q4AffineScaleSearch {
+             guard linear.weight.dim(-1) % q4AffineScaleSearchGroupSize == 0 else { return nil }
+-            let (weight, scales, biases) = q4AffineScaleSearchQuantized(linear.weight)
++            let (weight, scales, biases) = q4AffineScaleSearchQuantized(linear.weight, rowBatchSize: rowBatchSize)
+             let resolved = EffectiveModelConversionQuantization(
+                 bits: q4AffineScaleSearchBits,
+                 groupSize: q4AffineScaleSearchGroupSize,
+@@ -1060,7 +1102,7 @@
+         guard switchLinear.weight.dim(-1) % q4AffineScaleSearchGroupSize == 0 else {
+             return nil
+         }
+-        let (weight, scales, biases) = q4AffineScaleSearchQuantized(switchLinear.weight)
++        let (weight, scales, biases) = q4AffineScaleSearchQuantized(switchLinear.weight, rowBatchSize: rowBatchSize)
+         let resolved = EffectiveModelConversionQuantization(
+             bits: q4AffineScaleSearchBits,
+             groupSize: q4AffineScaleSearchGroupSize,

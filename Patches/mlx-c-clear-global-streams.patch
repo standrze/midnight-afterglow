@@ -1,0 +1,19 @@
+diff --git a/mlx/c/stream.cpp b/mlx/c/stream.cpp
+--- a/mlx/c/stream.cpp
++++ b/mlx/c/stream.cpp
+@@ -6,6 +6,7 @@
+ #include "mlx/c/error.h"
+ #include "mlx/c/private/mlx.h"
+ #include "mlx/c/stream.h"
++#include "mlx/backend/gpu/eval.h"
+ 
+ int mlx_stream_tostring(mlx_string* str_, mlx_stream stream) {
+   try {
+@@ -83,6 +84,7 @@ extern "C" int mlx_synchronize(mlx_stream stream) {
+ extern "C" int mlx_clear_streams(void) {
+   try {
+     mlx::core::clear_streams();
++    mlx::core::gpu::clear_global_streams();
+   } catch (std::exception& e) {
+     mlx_error(e.what());
+     return 1;

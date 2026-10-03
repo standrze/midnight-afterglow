@@ -1,0 +1,46 @@
+--- a/Libraries/MLXLMCommon/ModelConversion.swift
++++ b/Libraries/MLXLMCommon/ModelConversion.swift
+@@ -793,25 +793,27 @@
+ /// strict MSE improvement, which makes standard Q4 a per-group fallback and handles zero
+ /// groups without a special output representation.
+ public func q4AffineScaleSearchQuantized(
+-    _ weight: MLXArray
++    _ weight: MLXArray,
++    groupSize: Int = 64
+ ) -> (weight: MLXArray, scales: MLXArray, biases: MLXArray) {
++    precondition([64, 128].contains(groupSize), "AffineScaleSearch-Q4 supports group sizes 64 and 128")
+     precondition(
+-        weight.dim(-1) % q4AffineScaleSearchGroupSize == 0,
+-        "AffineScaleSearch-Q4 requires the input width to be divisible by 64")
++        weight.dim(-1) % groupSize == 0,
++        "AffineScaleSearch-Q4 requires the input width to be divisible by its group size")
+ 
+     let baseline = MLX.quantized(
+         weight,
+-        groupSize: q4AffineScaleSearchGroupSize,
++        groupSize: groupSize,
+         bits: q4AffineScaleSearchBits,
+         mode: .affine)
+     guard let baselineBiases = baseline.biases else {
+         preconditionFailure("MLX affine quantization did not return biases")
+     }
+ 
+-    let groupCount = weight.size / q4AffineScaleSearchGroupSize
+-    let wordsPerGroup = q4AffineScaleSearchGroupSize * q4AffineScaleSearchBits / 32
++    let groupCount = weight.size / groupSize
++    let wordsPerGroup = groupSize * q4AffineScaleSearchBits / 32
+     let codesPerWord = 32 / q4AffineScaleSearchBits
+-    let grouped = weight.reshaped(groupCount, q4AffineScaleSearchGroupSize).asType(.float32)
++    let grouped = weight.reshaped(groupCount, groupSize).asType(.float32)
+     let baselineScales = baseline.scales.reshaped(groupCount, 1).asType(.float32)
+     let biases = baselineBiases.reshaped(groupCount, 1).asType(.float32)
+ 
+@@ -822,7 +824,7 @@
+     let baselineWords = baseline.wq.reshaped(groupCount, wordsPerGroup, 1)
+     let baselineCodes = MLX.bitwiseAnd(
+         baselineWords >> shifts, MLXArray(UInt32(15))
+-    ).reshaped(groupCount, q4AffineScaleSearchGroupSize)
++    ).reshaped(groupCount, groupSize)
+     let baselineReconstruction = baselineCodes.asType(.float32) * baselineScales + biases
+ 
+     var bestError = MLX.mean(

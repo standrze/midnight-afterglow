@@ -1,0 +1,50 @@
+diff --git a/Source/Cmlx/include-framework/mlx-c-stream.h b/Source/Cmlx/include-framework/mlx-c-stream.h
+--- a/Source/Cmlx/include-framework/mlx-c-stream.h
++++ b/Source/Cmlx/include-framework/mlx-c-stream.h
+@@ -62,6 +62,10 @@ int mlx_stream_get_index(int* index, mlx_stream stream);
+  */
+ int mlx_synchronize(mlx_stream stream);
+ /**
++ * Synchronize and release stream command encoders owned by this thread.
++ */
++int mlx_clear_streams(void);
++/**
+  * Returns the default stream on the given device.
+  */
+ int mlx_get_default_stream(mlx_stream* stream, mlx_device dev);
+diff --git a/Source/Cmlx/include/mlx/c/stream.h b/Source/Cmlx/include/mlx/c/stream.h
+--- a/Source/Cmlx/include/mlx/c/stream.h
++++ b/Source/Cmlx/include/mlx/c/stream.h
+@@ -62,6 +62,10 @@ int mlx_stream_get_index(int* index, mlx_stream stream);
+  */
+ int mlx_synchronize(mlx_stream stream);
+ /**
++ * Synchronize and release stream command encoders owned by this thread.
++ */
++int mlx_clear_streams(void);
++/**
+  * Returns the default stream on the given device.
+  */
+ int mlx_get_default_stream(mlx_stream* stream, mlx_device dev);
+diff --git a/Source/MLX/Stream.swift b/Source/MLX/Stream.swift
+--- a/Source/MLX/Stream.swift
++++ b/Source/MLX/Stream.swift
+@@ -3,6 +3,18 @@
+ import Cmlx
+ import Foundation
+ 
++/// Synchronize and release MLX command encoders owned by the calling thread.
++///
++/// CUDA command encoders are thread-local and must be cleared before their
++/// creating thread exits. In particular, short-lived Linux/CUDA tools should
++/// call this before process return so cleanup runs while the CUDA driver is
++/// still available.
++public func clearStreams() {
++    _ = evalLock.withLock {
++        mlx_clear_streams()
++    }
++}
++
+ /// Parameter type for all MLX operations.
+ ///
+ /// Use this to control where operations are evaluated:

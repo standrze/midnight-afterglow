@@ -1,0 +1,229 @@
+diff --git a/mlx/backend/metal/kernels/quantized.h b/mlx/backend/metal/kernels/quantized.h
+index 42855e14d..84ee28e6a 100644
+--- a/mlx/backend/metal/kernels/quantized.h
++++ b/mlx/backend/metal/kernels/quantized.h
+@@ -754,7 +754,11 @@ METAL_FUNC void qmv_quad_impl(
+   }
+ }
+ 
+-template <typename T, int group_size, int bits>
++template <
++    typename T,
++    int group_size,
++    int bits,
++    int results_per_simdgroup = 4>
+ METAL_FUNC void qmv_fast_impl(
+     const device uint32_t* w,
+     const device T* scales,
+@@ -768,7 +772,6 @@ METAL_FUNC void qmv_fast_impl(
+     uint simd_lid [[thread_index_in_simdgroup]]) {
+   constexpr int packs_per_thread = bits == 2 ? 1 : 2;
+   constexpr int num_simdgroups = 2;
+-  constexpr int results_per_simdgroup = 4;
+   constexpr int pack_factor = get_pack_factor<bits, 32>();
+   constexpr int bytes_per_pack = get_bytes_per_pack<bits, 32>();
+   constexpr int values_per_thread = pack_factor * packs_per_thread;
+@@ -1643,7 +1646,7 @@ template <
+         b_strides,
+         tid);
+   }
+-  qmv_fast_impl<T, group_size, bits>(
++  qmv_fast_impl<T, group_size, bits, results_per_simdgroup>(
+       w,
+       scales,
+       biases,
+@@ -2084,7 +2087,12 @@ template <
+       w, scales, biases, x, y, Xs, Ws, K, N, M, tid, lid, simd_gid, simd_lid);
+ }
+ 
+-template <typename T, int group_size, int bits, bool has_global_scale = false>
++template <
++    typename T,
++    int group_size,
++    int bits,
++    bool has_global_scale = false,
++    int results_per_simdgroup = 4>
+ [[kernel]] void affine_gather_qmv_fast(
+     const device uint32_t* w [[buffer(0)]],
+     const device T* scales [[buffer(1)]],
+@@ -2133,7 +2141,7 @@ template <typename T, int group_size, int bits, bool has_global_scale = false>
+       s_strides,
+       b_strides,
+       tid);
+-  qmv_fast_impl<T, group_size, bits>(
++  qmv_fast_impl<T, group_size, bits, results_per_simdgroup>(
+       w,
+       scales,
+       biases,
+diff --git a/mlx/backend/metal/kernels/quantized.metal b/mlx/backend/metal/kernels/quantized.metal
+index 069482cba..6bde8ff89 100644
+--- a/mlx/backend/metal/kernels/quantized.metal
++++ b/mlx/backend/metal/kernels/quantized.metal
+@@ -90,6 +90,35 @@
+   instantiate_quantized_batched(name, type, group_size, bits, 1)      \
+   instantiate_quantized_batched(name, type, group_size, bits, 0)
+ 
++#define instantiate_affine_qmv_fast_results(type, results, batched) \
++  instantiate_kernel( \
++      "affine_qmv_fast_" #type "_gs_64_b_4_r_" #results "_batch_" #batched, \
++      affine_qmv_fast, \
++      type, \
++      64, \
++      4, \
++      batched, \
++      false, \
++      results)
++
++#define instantiate_affine_gather_qmv_fast_results(type, results) \
++  instantiate_kernel( \
++      "affine_gather_qmv_fast_" #type "_gs_64_b_4_r_" #results, \
++      affine_gather_qmv_fast, \
++      type, \
++      64, \
++      4, \
++      false, \
++      results)
++
++#define instantiate_affine_qmv_fast_specializations(type) \
++  instantiate_affine_qmv_fast_results(type, 2, 0) \
++  instantiate_affine_qmv_fast_results(type, 2, 1) \
++  instantiate_affine_qmv_fast_results(type, 8, 0) \
++  instantiate_affine_qmv_fast_results(type, 8, 1) \
++  instantiate_affine_gather_qmv_fast_results(type, 2) \
++  instantiate_affine_gather_qmv_fast_results(type, 8)
++
+ #define instantiate_quantized_all_batched(type, group_size, bits) \
+   instantiate_quantized_batched_wrap(affine_qmv_fast, type, group_size, bits)     \
+   instantiate_quantized_batched_wrap(affine_qmv, type, group_size, bits)     \
+@@ -179,4 +208,7 @@
+   instantiate_quantized_groups(6) \
+   instantiate_quantized_groups(8)
+ 
+-instantiate_quantized_all() // clang-format on
++instantiate_quantized_all()
++instantiate_affine_qmv_fast_specializations(float)
++instantiate_affine_qmv_fast_specializations(float16_t)
++instantiate_affine_qmv_fast_specializations(bfloat16_t) // clang-format on
+diff --git a/mlx/backend/metal/quantized.cpp b/mlx/backend/metal/quantized.cpp
+index 1ae99a8e5..52ea8e77a 100644
+--- a/mlx/backend/metal/quantized.cpp
++++ b/mlx/backend/metal/quantized.cpp
+@@ -458,6 +458,28 @@ void qmv_quad(
+   compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+ }
+ 
++inline int affine_qmv_results_per_simdgroup(
++    bool fast,
++    int N,
++    int group_size,
++    int bits) {
++  if (!fast || group_size != 64 || bits != 4) {
++    return 4;
++  }
++
++  static int requested_results = env::get_var(
++      "MLX_METAL_AFFINE_QMV_RESULTS_PER_SIMDGROUP", 0);
++  static int minimum_output_size =
++      env::get_var("MLX_METAL_AFFINE_QMV_MIN_OUTPUTS", 0);
++  if ((requested_results == 2 || requested_results == 4 ||
++       requested_results == 8) &&
++      N >= minimum_output_size &&
++      N % (2 * requested_results) == 0) {
++    return requested_results;
++  }
++  return 4;
++}
++
+ void qmv(
+     const array& x,
+     const array& w,
+@@ -486,7 +508,13 @@ void qmv(
+   // floating-point quantized matrix-vector products on M5 Max GPUs.
+   bool use_narrow_qmv = fast && N >= 4096 && d.get_architecture_gen() == 17 &&
+       d.get_architecture().back() == 's' && mode == "nvfp4";
+-  int results_per_simdgroup = use_narrow_qmv ? 2 : 4;
++  int results_per_simdgroup = mode == "affine"
++      ? affine_qmv_results_per_simdgroup(fast, N, group_size, bits)
++      : (use_narrow_qmv ? 2 : 4);
++  std::string results_suffix;
++  if (results_per_simdgroup != 4) {
++    concatenate(results_suffix, "_r_", results_per_simdgroup);
++  }
+   bn = 2 * results_per_simdgroup;
+   MTL::Size group_dims(bk, 2, 1);
+   MTL::Size grid_dims(M, (N + bn - 1) / bn, B);
+@@ -499,7 +527,7 @@ void qmv(
+       group_size,
+       "_b_",
+       bits,
+-      use_narrow_qmv ? "_r_2" : "",
++      results_suffix,
+       B > 1 ? "_batch_1" : "_batch_0",
+       global_scale ? "_hgs" : "");
+   auto kernel = get_quantized_kernel_wrapped(
+@@ -1328,13 +1356,21 @@ void gather_qmv(
+ 
+   int bn = 8;
+   int bk = 32;
+-  MTL::Size group_dims(bk, 2, 1);
+-  MTL::Size grid_dims(M, (N + bn - 1) / bn, B);
+ 
+   std::string kname;
+   kname.reserve(64);
+   std::string type_string = get_type_string(x.dtype());
+   bool fast = N % bn == 0 && K % qmv_fast_k_alignment(bits) == 0;
++  int results_per_simdgroup = mode == "affine"
++      ? affine_qmv_results_per_simdgroup(fast, N, group_size, bits)
++      : 4;
++  std::string results_suffix;
++  if (results_per_simdgroup != 4) {
++    concatenate(results_suffix, "_r_", results_per_simdgroup);
++  }
++  bn = 2 * results_per_simdgroup;
++  MTL::Size group_dims(bk, 2, 1);
++  MTL::Size grid_dims(M, (N + bn - 1) / bn, B);
+   concatenate(
+       kname,
+       mode + (fast ? "_gather_qmv_fast_" : "_gather_qmv_"),
+@@ -1343,17 +1379,32 @@ void gather_qmv(
+       group_size,
+       "_b_",
+       bits,
++      results_suffix,
+       global_scale ? "_hgs" : "");
+ 
+-  auto kernel = get_quantized_kernel_wrapped(
+-      d,
+-      kname,
+-      (fast ? "gather_qmv_fast" : "gather_qmv"),
+-      mode,
+-      type_string,
+-      group_size,
+-      bits,
+-      global_scale.has_value());
++  MTL::ComputePipelineState* kernel;
++  if (mode == "affine" && fast && results_per_simdgroup != 4) {
++    kernel = get_quantized_kernel_wrapped(
++        d,
++        kname,
++        "gather_qmv_fast",
++        mode,
++        type_string,
++        group_size,
++        bits,
++        global_scale.has_value(),
++        results_per_simdgroup);
++  } else {
++    kernel = get_quantized_kernel_wrapped(
++        d,
++        kname,
++        (fast ? "gather_qmv_fast" : "gather_qmv"),
++        mode,
++        type_string,
++        group_size,
++        bits,
++        global_scale.has_value());
++  }
+ 
+   auto& compute_encoder = metal::get_command_encoder(s);
+   compute_encoder.set_compute_pipeline_state(kernel);

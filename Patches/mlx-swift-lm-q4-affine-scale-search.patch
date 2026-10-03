@@ -1,0 +1,269 @@
+diff --git a/Libraries/MLXLMCommon/ModelConversion.swift b/Libraries/MLXLMCommon/ModelConversion.swift
+index e8bf005..8f3f129 100644
+--- a/Libraries/MLXLMCommon/ModelConversion.swift
++++ b/Libraries/MLXLMCommon/ModelConversion.swift
+@@ -33,6 +33,21 @@ public enum ModelConversionQuantizationCalibration: Sendable, Equatable {
+     /// `QuantizedEmbedding` has no initializer accepting precomputed scales and biases.
+     /// The stored format is identical either way, so this affects accuracy, not loadability.
+     case q4Zero
++
++    /// Search nearby affine Q4 scales while preserving MLX's ordinary packed layout.
++    ///
++    /// For every 64-value group, the search starts from MLX's standard affine scale and
++    /// bias. It varies the integer distance from the anchored edge to zero by `-4 ... 4`,
++    /// requantizes the group, and keeps a candidate only when its reconstruction MSE is
++    /// strictly lower. Offset zero is the byte-compatible MLX baseline, so the search
++    /// cannot make per-group reconstruction error worse.
++    ///
++    /// This is an experimental Q4R8-specific adaptation of the *idea* behind ScaleSearch,
++    /// not the paper's NVFP4 E4M3/E2M1 algorithm. It requires 4 bits, group size 64, and
++    /// `QuantizationMode.affine`. Q8 overrides should continue using ``standard``.
++    /// Linear and SwitchLinear layers use the searched grid; embeddings use standard MLX
++    /// quantization because QuantizedEmbedding cannot accept precomputed affine arrays.
++    case q4AffineScaleSearch
+ }
+ 
+ /// Quantization settings for one conversion pass or layer.
+@@ -210,7 +225,7 @@ public enum ModelConversionError: LocalizedError, Equatable {
+         case .invalidShardSize(let shardSize):
+             "Shard size must be greater than zero, got \(shardSize)."
+         case .incompatibleCalibration(let calibration, let quantization):
+-            "\(calibration) calibration requires bits 4, group size 32, and affine mode, but got bits \(quantization.bits.map(String.init) ?? "default"), group size \(quantization.groupSize.map(String.init) ?? "default"), mode \(quantization.mode)."
++            "\(calibration) calibration is incompatible with bits \(quantization.bits.map(String.init) ?? "default"), group size \(quantization.groupSize.map(String.init) ?? "default"), mode \(quantization.mode)."
+         }
+     }
+ }
+@@ -662,6 +677,11 @@ private func quantizeForModelConversion(
+ private let q4ZeroBits = 4
+ private let q4ZeroGroupSize = 32
+ 
++/// Geometry retained by the Q4R8 affine scale search.
++private let q4AffineScaleSearchBits = 4
++private let q4AffineScaleSearchGroupSize = 64
++private let q4AffineScaleSearchOffsets = -4 ... 4
++
+ /// Magnitude of the most-negative representable code. The grid spans `[-8, 7]`, so the scale
+ /// is `extremum / -8` and the affine bias that recentres it is `-8 * scale`.
+ private let q4ZeroNegativeExtent: Float = 8
+@@ -682,6 +702,16 @@ func validateModelConversionCalibration(_ quantization: ModelConversionQuantizat
+         if !compatible {
+             throw ModelConversionError.incompatibleCalibration(.q4Zero, quantization)
+         }
++    case .q4AffineScaleSearch:
++        let compatible =
++            (quantization.bits ?? q4AffineScaleSearchBits) == q4AffineScaleSearchBits
++            && (quantization.groupSize ?? q4AffineScaleSearchGroupSize)
++                == q4AffineScaleSearchGroupSize
++            && quantization.mode == .affine
++        if !compatible {
++            throw ModelConversionError.incompatibleCalibration(
++                .q4AffineScaleSearch, quantization)
++        }
+     }
+ }
+ 
+@@ -746,6 +776,93 @@ func q4ZeroQuantized(_ weight: MLXArray) -> (weight: MLXArray, scales: MLXArray,
+     return (packed, scaleGrid, (scaleGrid * -q4ZeroNegativeExtent).asType(weight.dtype))
+ }
+ 
++/// Search nearby MLX affine-Q4 scales without changing the stored format.
++///
++/// MLX anchors its affine grid at the larger-magnitude edge (`bias`) and chooses a signed
++/// scale. `round(bias / scale)` is therefore the integer number of scale steps from that
++/// edge to zero. Searching nearby integers changes the scale while retaining the same
++/// anchored edge, packed 0...15 codes, scale dtype, affine bias, and decode kernel.
++///
++/// The ordinary MLX result initializes every group. A candidate replaces it only on a
++/// strict MSE improvement, which makes standard Q4 a per-group fallback and handles zero
++/// groups without a special output representation.
++public func q4AffineScaleSearchQuantized(
++    _ weight: MLXArray
++) -> (weight: MLXArray, scales: MLXArray, biases: MLXArray) {
++    precondition(
++        weight.dim(-1) % q4AffineScaleSearchGroupSize == 0,
++        "AffineScaleSearch-Q4 requires the input width to be divisible by 64")
++
++    let baseline = MLX.quantized(
++        weight,
++        groupSize: q4AffineScaleSearchGroupSize,
++        bits: q4AffineScaleSearchBits,
++        mode: .affine)
++    guard let baselineBiases = baseline.biases else {
++        preconditionFailure("MLX affine quantization did not return biases")
++    }
++
++    let groupCount = weight.size / q4AffineScaleSearchGroupSize
++    let wordsPerGroup = q4AffineScaleSearchGroupSize * q4AffineScaleSearchBits / 32
++    let codesPerWord = 32 / q4AffineScaleSearchBits
++    let grouped = weight.reshaped(groupCount, q4AffineScaleSearchGroupSize).asType(.float32)
++    let baselineScales = baseline.scales.reshaped(groupCount, 1).asType(.float32)
++    let biases = baselineBiases.reshaped(groupCount, 1).asType(.float32)
++
++    let shifts =
++        (MLXArray(0 ..< codesPerWord) * q4AffineScaleSearchBits)
++        .asType(.uint32)
++        .reshaped(1, 1, codesPerWord)
++    let baselineWords = baseline.wq.reshaped(groupCount, wordsPerGroup, 1)
++    let baselineCodes = MLX.bitwiseAnd(
++        baselineWords >> shifts, MLXArray(UInt32(15))
++    ).reshaped(groupCount, q4AffineScaleSearchGroupSize)
++    let baselineReconstruction = baselineCodes.asType(.float32) * baselineScales + biases
++
++    var bestError = MLX.mean(
++        MLX.square(grouped - baselineReconstruction), axis: -1, keepDims: true)
++    var bestWeight = baseline.wq.reshaped(groupCount, wordsPerGroup)
++    var bestScales = baselineScales
++    MLX.eval(bestError, bestWeight, bestScales)
++
++    let baselineQ0 = MLX.round(biases / baselineScales)
++    for offset in q4AffineScaleSearchOffsets where offset != 0 {
++        let candidateQ0 = baselineQ0 + Float(offset)
++        let validQ0 = candidateQ0 .< Float(0)
++        let safeQ0 = MLX.where(validQ0, candidateQ0, MLXArray(Float(-1)))
++
++        // Round-trip through the stored dtype before measuring error. This makes the
++        // search score the exact grid that safetensors and the runtime will consume.
++        let candidateScale = (biases / safeQ0).asType(weight.dtype).asType(.float32)
++        let valid = validQ0 .&& (MLX.abs(candidateScale) .> Float(0))
++        let safeScale = MLX.where(valid, candidateScale, baselineScales)
++        let candidateCodes = MLX.clip(
++            MLX.round((grouped - biases) / safeScale), min: 0, max: 15
++        ).asType(.uint32)
++        let candidateReconstruction = candidateCodes.asType(.float32) * safeScale + biases
++        let candidateError = MLX.mean(
++            MLX.square(grouped - candidateReconstruction), axis: -1, keepDims: true)
++        let improved = valid .&& (candidateError .< bestError)
++
++        let packedGroups = candidateCodes.reshaped(
++            groupCount, wordsPerGroup, codesPerWord)
++        let candidateWeight = MLX.sum(packedGroups << shifts, axis: -1).asType(.uint32)
++        bestWeight = MLX.where(improved, candidateWeight, bestWeight)
++        bestScales = MLX.where(improved, safeScale, bestScales)
++        bestError = MLX.where(improved, candidateError, bestError)
++
++        // Conversion is offline. Materializing after each candidate bounds the lazy graph
++        // and transient memory for Laguna's very large stacked expert tensors.
++        MLX.eval(bestError, bestWeight, bestScales)
++    }
++
++    return (
++        bestWeight.reshaped(baseline.wq.shape),
++        bestScales.reshaped(baseline.scales.shape).asType(weight.dtype),
++        baselineBiases
++    )
++}
++
+ private func isConvertibleQuantizationTarget(_ module: Module, groupSize: Int) -> Bool {
+     if module is Quantized {
+         return false
+@@ -789,6 +906,26 @@ private func quantizeLayerForModelConversion(
+             )
+         }
+ 
++        if quantization.calibration == .q4AffineScaleSearch {
++            guard linear.weight.dim(-1) % q4AffineScaleSearchGroupSize == 0 else { return nil }
++            let (weight, scales, biases) = q4AffineScaleSearchQuantized(linear.weight)
++            let resolved = EffectiveModelConversionQuantization(
++                bits: q4AffineScaleSearchBits,
++                groupSize: q4AffineScaleSearchGroupSize,
++                mode: .affine)
++            return (
++                QuantizedLinear(
++                    weight: weight,
++                    bias: linear.bias,
++                    scales: scales,
++                    biases: biases,
++                    groupSize: q4AffineScaleSearchGroupSize,
++                    bits: q4AffineScaleSearchBits,
++                    mode: .affine),
++                resolved
++            )
++        }
++
+         let (weight, scales, biases) = MLX.quantized(
+             linear.weight, groupSize: quantization.groupSize, bits: quantization.bits, mode: mode)
+         let actualQuantization =
+@@ -810,6 +947,30 @@ private func quantizeLayerForModelConversion(
+         )
+     }
+ 
++    if let switchLinear = layer as? SwitchLinear,
++        quantization.calibration == .q4AffineScaleSearch
++    {
++        guard switchLinear.weight.dim(-1) % q4AffineScaleSearchGroupSize == 0 else {
++            return nil
++        }
++        let (weight, scales, biases) = q4AffineScaleSearchQuantized(switchLinear.weight)
++        let resolved = EffectiveModelConversionQuantization(
++            bits: q4AffineScaleSearchBits,
++            groupSize: q4AffineScaleSearchGroupSize,
++            mode: .affine)
++        return (
++            QuantizedSwitchLinear(
++                switchLinear,
++                weight: weight,
++                scales: scales,
++                biases: biases,
++                groupSize: q4AffineScaleSearchGroupSize,
++                bits: q4AffineScaleSearchBits,
++                mode: .affine),
++            resolved
++        )
++    }
++
+     if let embedding = layer as? Embedding {
+         return (
+             QuantizedEmbedding(
+@@ -864,6 +1025,12 @@ func effectiveModelConversionQuantization(
+     if quantization.calibration == .q4Zero {
+         return .init(bits: q4ZeroBits, groupSize: q4ZeroGroupSize, mode: .affine)
+     }
++    if quantization.calibration == .q4AffineScaleSearch {
++        return .init(
++            bits: q4AffineScaleSearchBits,
++            groupSize: q4AffineScaleSearchGroupSize,
++            mode: .affine)
++    }
+     return .init(
+         bits: quantization.bits ?? defaultModelConversionBits(for: quantization.mode),
+         groupSize: quantization.groupSize
+diff --git a/Libraries/MLXLMCommon/SwitchLayers.swift b/Libraries/MLXLMCommon/SwitchLayers.swift
+index 1f9144b..55f83f8 100644
+--- a/Libraries/MLXLMCommon/SwitchLayers.swift
++++ b/Libraries/MLXLMCommon/SwitchLayers.swift
+@@ -308,6 +308,35 @@ public class QuantizedSwitchLinear: SwitchLinear, Quantized {
+         self.freeze()
+     }
+ 
++    /// Initialize from precomputed arrays that already use MLX's packed quantized layout.
++    ///
++    /// This keeps conversion-time calibration separate from inference: the resulting layer
++    /// executes the same gatherQuantizedMM path as an ordinarily quantized SwitchLinear.
++    public init(
++        _ other: SwitchLinear,
++        weight: MLXArray,
++        scales: MLXArray,
++        biases: MLXArray?,
++        groupSize: Int,
++        bits: Int,
++        mode: QuantizationMode = .affine
++    ) {
++        self.groupSize = groupSize
++        self.bits = bits
++        self.mode = mode
++        self._scales.wrappedValue = scales
++        self._biases.wrappedValue = biases
++
++        super.init(
++            inputDims: other.inputDims,
++            outputDims: other.outputDims,
++            numExperts: other.numExperts,
++            weight: weight,
++            bias: other.bias)
++
++        self.freeze()
++    }
++
+     override public func callAsFunction(
+         _ x: MLXArray, _ indices: MLXArray, sortedIndices: Bool = false
+     ) -> MLXArray {
